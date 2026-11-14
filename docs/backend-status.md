@@ -2,6 +2,8 @@
 
 Branch: `feat/membrane-backend`. Worktree: `C:\MongoDB\membrane-backend`.
 
+Coordination: see `CHANGELOG.md` for change locations and source commit IDs. Wait for the frontend agent's readiness handoff, merge both branches into `main`, then split future work from the shared merge commit. No new branch split or main merge is authorized before that handoff.
+
 ## Implemented
 
 - Versioned FastAPI/Pydantic HTTP contract, error envelope, upload and local asset serving, source extraction provenance, candidate staging/revision, active-memory/history APIs.

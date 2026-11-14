@@ -1,0 +1,167 @@
+{
+  "notice": "SYNTHETIC DOCUMENTATION FIXTURES. Not recorded or live evidence.",
+  "examples": {
+    "health_unconfigured": {
+      "database": {
+        "status": "unavailable",
+        "reason": "Configure local credentials and run preflight"
+      },
+      "model": {
+        "status": "unavailable",
+        "reason": "Configure local credentials and run preflight"
+      },
+      "search": {
+        "status": "unavailable",
+        "reason": "Configure local credentials and run preflight"
+      },
+      "voice": {
+        "status": "disabled",
+        "reason": "Optional voice disabled"
+      },
+      "demo_identity": "Local demo reviewer",
+      "workspace_id": "membrane-demo-v1"
+    },
+    "source": {
+      "source_id": "source_SYNTHETIC",
+      "created_at": "2026-11-14T17:00:00+00:00",
+      "sha256": "SYNTHETIC_EXAMPLE",
+      "mime_type": "image/png",
+      "image_url": "/api/sources/source_SYNTHETIC/image",
+      "extracted_text": "Order 4821 only: exception exc-4821 permits a refund without return.",
+      "quotation": "Order 4821 only",
+      "proposed_text": "Order-specific refund exception for order 4821.",
+      "proposed_scope": {
+        "kind": "order",
+        "order_id": "4821",
+        "customer_id": "customer-4821",
+        "exception_id": "exc-4821"
+      },
+      "trust": "untrusted",
+      "provenance": {
+        "synthetic": true,
+        "notice": "Documentation fixture; not an actual extraction"
+      }
+    },
+    "active_version": {
+      "version_id": "version_initial_v1",
+      "created_at": "2026-11-14T17:00:00+00:00",
+      "parent_version_id": null,
+      "memories": [],
+      "candidate_id": null,
+      "run_id": null,
+      "policy_hash": "SYNTHETIC_EXAMPLE"
+    },
+    "candidate_staged": {
+      "candidate_id": "candidate_SYNTHETIC",
+      "created_at": "2026-11-14T17:00:00+00:00",
+      "source_id": "source_SYNTHETIC",
+      "text": "All VIP customers can keep refunded items.",
+      "scope": {
+        "kind": "global",
+        "order_id": null,
+        "customer_id": null,
+        "exception_id": null
+      },
+      "parent_candidate_id": null,
+      "base_version_id": "version_initial_v1",
+      "content_hash": "SYNTHETIC_EXAMPLE_NOT_A_REAL_HASH",
+      "status": "staged",
+      "latest_run_id": null
+    },
+    "candidate_eligible": {
+      "candidate_id": "candidate_SYNTHETIC",
+      "created_at": "2026-11-14T17:00:00+00:00",
+      "source_id": "source_SYNTHETIC",
+      "text": "All VIP customers can keep refunded items.",
+      "scope": {
+        "kind": "global",
+        "order_id": null,
+        "customer_id": null,
+        "exception_id": null
+      },
+      "parent_candidate_id": null,
+      "base_version_id": "version_initial_v1",
+      "content_hash": "SYNTHETIC_EXAMPLE_NOT_A_REAL_HASH",
+      "status": "eligible",
+      "latest_run_id": "run_SYNTHETIC"
+    },
+    "candidate_quarantined": {
+      "candidate_id": "candidate_SYNTHETIC",
+      "created_at": "2026-11-14T17:00:00+00:00",
+      "source_id": "source_SYNTHETIC",
+      "text": "All VIP customers can keep refunded items.",
+      "scope": {
+        "kind": "global",
+        "order_id": null,
+        "customer_id": null,
+        "exception_id": null
+      },
+      "parent_candidate_id": null,
+      "base_version_id": "version_initial_v1",
+      "content_hash": "SYNTHETIC_EXAMPLE_NOT_A_REAL_HASH",
+      "status": "quarantined",
+      "latest_run_id": "run_SYNTHETIC"
+    },
+    "run_queued": {
+      "run_id": "run_SYNTHETIC",
+      "candidate_id": "candidate_SYNTHETIC",
+      "created_at": "2026-11-14T17:00:00+00:00",
+      "status": "queued",
+      "admission": null,
+      "reasons": [],
+      "progress": {
+        "completed": 0,
+        "total": 48
+      },
+      "selection": [],
+      "selection_metadata": {},
+      "cases": [],
+      "summary": {},
+      "config": {
+        "provider": "SYNTHETIC DOCUMENTATION EXAMPLE",
+        "agent_model": "not-a-real-model"
+      },
+      "usage": {
+        "model_calls": 0
+      },
+      "live": false,
+      "base_version_id": "version_initial_v1",
+      "candidate_hash": "SYNTHETIC_EXAMPLE_NOT_A_REAL_HASH"
+    },
+    "run_inconclusive": {
+      "run_id": "run_SYNTHETIC",
+      "candidate_id": "candidate_SYNTHETIC",
+      "created_at": "2026-11-14T17:00:00+00:00",
+      "status": "inconclusive",
+      "admission": "inconclusive",
+      "reasons": [
+        "Synthetic example: Vector Search unavailable; no substitute passing suite"
+      ],
+      "progress": {
+        "completed": 0,
+        "total": 48
+      },
+      "selection": [],
+      "selection_metadata": {},
+      "cases": [],
+      "summary": {},
+      "config": {
+        "provider": "SYNTHETIC DOCUMENTATION EXAMPLE",
+        "agent_model": "not-a-real-model"
+      },
+      "usage": {
+        "model_calls": 0
+      },
+      "live": false,
+      "base_version_id": "version_initial_v1",
+      "candidate_hash": "SYNTHETIC_EXAMPLE_NOT_A_REAL_HASH"
+    },
+    "error_stale_approval": {
+      "error": {
+        "code": "stale_evidence",
+        "message": "Approval requires exact current passing candidate, base, and policy evidence",
+        "details": {}
+      }
+    }
+  }
+}

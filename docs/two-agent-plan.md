@@ -2,6 +2,8 @@
 
 The original `IMPLEMENTATION_PLAN.md` defines behavior and acceptance. This document defines branch ownership.
 
+**Coordination update — November 14:** Finish the current handoff on the existing branches, wait for the teammate's readiness confirmation, merge both contributions into `main`, then create the next separate branches from that shared commit. Do not start a new split or merge early. Read `docs/CHANGELOG.md` for commit IDs/change locations and `docs/merge-checklist.md` for the integration gate. This update supersedes the initial branch-start instructions below.
+
 | Owner | Branch | Owned areas |
 | --- | --- | --- |
 | Backend agent | `feat/membrane-backend` | `backend/`, `contracts/`, `fixtures/`, `scripts/`, Atlas/backend setup docs, `.env.example`, `.gitignore` |
