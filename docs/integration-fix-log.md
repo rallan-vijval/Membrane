@@ -71,3 +71,7 @@ Integrated the dark vault design with voice intake and scope experiments on inte
 
 ## 2026-11-14: Essential workflow and dashboard
 Reduced the main page to lock, next action and a collapsible editor. Consolidated dashboard tools, replaced result bars with selectable counts, and made the four-decision comparison fit mobile. Preserved approval guards, voice review and evidence links. Updated browser contracts and handoff documentation.
+
+
+## 2026-11-14: Safe refusals and an explicit regression walkthrough
+Fixed false payment-check failures when a non-refund response asks for a return instead of using the answer action. Unauthorized refund tools remain denied; safe refusal variants no longer count as learned financial changes. Policy and compact suite versions changed; historical evidence remains intact. Dashboard distinguishes baseline failures and shows unsafe attempt, guard block and quarantine separately. Added a clearly labelled scripted example and recording guide. 113 backend tests passed (1 skipped), 26 browser tests passed, frontend build passed. Live corrected verification returned inconclusive on useful behavior, not false quarantine; no request errors.

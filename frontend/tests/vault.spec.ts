@@ -22,6 +22,7 @@ test('vault verdict distinguishes approval, availability, baseline failures and 
   expect(states.active.title).toBe('Memory in use');
   expect(states.expired.title).toBe('No longer in use');
   expect(states.unknown.title).toBe('Approval recorded');
+  expect(states.baseline.title).toBe('Baseline needs attention');
   expect(states.baseline.line).toContain('already failed without this memory');
   expect(states.stale.title).toBe('Different revision');
   expect(states.inconclusive.title).toBe('Needs investigation');

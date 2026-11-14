@@ -16,7 +16,7 @@ export function verdictOf(candidate: Candidate | null, run: Run | null, inUse: b
   const added = run?.cases.filter(c => c.classification === 'new-policy-violation').length ?? 0;
   const existing = run?.cases.filter(c => c.classification === 'pre-existing-violation').length ?? 0;
   if (run?.admission === 'quarantine' || candidate.state === 'quarantined')
-    return { tone: 'held', title: 'Quarantined', line: added ? `${added} request${added === 1 ? '' : 's'} failed with the proposed memory.${existing ? ` ${existing} already failed without it.` : ''}`
+    return { tone: 'held', title: existing && !added ? 'Baseline needs attention' : 'Quarantined', line: added ? `${added} request${added === 1 ? '' : 's'} failed with the proposed memory.${existing ? ` ${existing} already failed without it.` : ''}`
       : existing ? `${existing} request${existing === 1 ? '' : 's'} already failed without this memory. Approval is blocked.` : 'This memory is held outside the live agent.' };
   if (run?.status === 'completed' && run.admission === 'eligible' && candidate.state === 'eligible')
     return { tone: 'safe', title: 'Passed checks', line: 'Still isolated. Your approval is required before use.' };
@@ -35,7 +35,7 @@ export function KeyPanel({ candidate, run, hasSource = false, inUse, disabled, o
   return <section className={`key-panel key-${verdict.tone}`} aria-labelledby="key-h">
     <button type="button" className="key" disabled={!run} onClick={onOpen} aria-label="Inspect security verdict"><LockIcon open={inUse === true} /></button>
     <h2 id="key-h" className="key-verdict">{verdict.title}</h2><p className="key-line" role="status">{verdict.line}</p>
-    {run?.recorded && <span className="tag">Recorded evidence</span>}
+    {run?.recorded && <span className="tag">{run.model_config.provider === "synthetic" ? "Scripted example" : "Recorded evidence"}</span>}
     {run && running && <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={run.progress.total} aria-valuenow={run.progress.completed} aria-label="Test decisions recorded"><div style={{ width: `${run.progress.total ? Math.min(100, 100 * run.progress.completed / run.progress.total) : 0}%` }} /></div>}
     <div className="actions key-actions">{candidate && canRun && candidate.state !== 'eligible' && <button type="button" className={run ? 'secondary' : undefined} disabled={disabled || !canRun} onClick={onRun}>{run ? 'Repeat this test' : 'Test this memory'}</button>}{run && <button type="button" className="secondary" onClick={onOpen}>Open detailed results</button>}</div>
   </section>;
@@ -48,9 +48,10 @@ export function ChangeHighlight({ run }: { run: Run | null }) {
   const changed = run.cases.filter(c => c.classification === 'intended-safe-change');
   const pick: CaseResult | undefined = added[0] ?? existing[0] ?? changed[0];
   const inconclusive = run.cases.some(c => c.classification === 'inconclusive' || c.classification === null);
+  const blocked = pick?.executions.some(e => e.side === 'candidate' && e.enforcement?.allowed === false);
   const failed = pick?.executions.flatMap(e => e.checks?.filter(c => !c.passed).map(c => c.reason) ?? [])[0];
-  return <section className="panel change" aria-labelledby="change-h"><h2 id="change-h">{added.length ? 'A boundary was crossed' : existing.length ? 'An existing problem' : 'What changed?'}</h2>
-    {pick ? <><p className="change-request">{pick.title}</p><div className="change-grid"><div className="change-side"><span className="change-label">Without this memory</span><strong>{sideSummary(pick, 'baseline')}</strong></div><div className={`change-side ${added.length || existing.length ? 'change-bad' : 'change-good'}`}><span className="change-label">With this memory</span><strong>{sideSummary(pick, 'candidate')}</strong><span className="change-note">{failed ?? 'The recorded checks passed.'}</span></div></div>{existing.length > 0 && added.length === 0 && <p className="meta">The baseline already failed; this is not evidence that the proposed memory caused the problem.</p>}</>
+  return <section className="panel change" aria-labelledby="change-h"><h2 id="change-h">{added.length ? 'Unsafe attempt caught' : existing.length ? 'An existing problem' : 'What changed?'}</h2>
+    {pick ? <><p className="change-request">{pick.title}</p><div className="change-grid"><div className="change-side"><span className="change-label">Without this memory</span><strong>{sideSummary(pick, 'baseline')}</strong></div><div className={`change-side ${added.length || existing.length ? 'change-bad' : 'change-good'}`}><span className="change-label">With this memory</span><strong>{sideSummary(pick, 'candidate')}</strong><span className="change-note">{failed ?? 'The recorded checks passed.'}</span></div>{blocked && <div className="change-side change-good"><span className="change-label">Membrane protection</span><strong>Refund blocked</strong><span className="change-note">Unsafe attempt recorded. Memory quarantined before activation.</span></div>}</div>{existing.length > 0 && added.length === 0 && <p className="meta">The baseline already failed; this is not evidence that the proposed memory caused the problem.</p>}</>
       : <p className="change-request">{inconclusive ? 'Some responses could not be checked. Inspect the evidence.' : 'No action changed in these recorded requests.'}</p>}
   </section>;
 }

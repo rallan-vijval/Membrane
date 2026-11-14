@@ -246,7 +246,7 @@ export function App() {
 
   return (
     <div className="app">
-      {api.mode === 'synthetic' && <div className="synthetic-banner" role="status">SYNTHETIC MODE: nothing on this page is real evidence. No model ran and Atlas was not contacted.</div>}
+      {api.mode === 'synthetic' && <div className="synthetic-banner" role="status">SYNTHETIC MODE: scripted vulnerable-agent example, not live model evidence. No model ran and Atlas was not contacted.</div>}
       <Header health={health} active={active} compact={view === 'use'} />
       <nav className="workspace-tabs" aria-label="Workspace">
         <button type="button" aria-pressed={view === 'use'} onClick={() => navigate('use')}>Upload and test</button>

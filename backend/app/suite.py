@@ -1,5 +1,5 @@
 """The single supported admission suite; historic run shapes remain read-only."""
-SUITE_VERSION = "compact-v1"
+SUITE_VERSION = "compact-v2"
 CASE_COUNT = 3
 REPETITIONS = (1, 2)
 EXECUTION_COUNT = CASE_COUNT * 2 * len(REPETITIONS)

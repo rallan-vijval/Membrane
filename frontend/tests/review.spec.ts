@@ -186,7 +186,7 @@ test('synthetic mode is explicit and never calls Atlas-facing HTTP endpoints', a
   const requests: string[] = [];
   page.on('request', (request) => { if (new URL(request.url()).pathname.startsWith('/api/')) requests.push(request.url()); });
   await page.goto('/?synthetic=1');
-  await expect(page.locator('.synthetic-banner')).toContainText('nothing on this page is real evidence');
+  await expect(page.locator('.synthetic-banner')).toContainText('scripted vulnerable-agent example, not live model evidence');
   await expect(page.locator('.active-version')).toContainText('ver_syn_001');
   expect(requests).toEqual([]);
 });
