@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Membrane</title>
+<style>
+  :root { --ink:#16282f; --muted:#5b6b72; --line:#d6dfe2; --bg:#f6f8f8; --card:#fff;
+          --teal:#0f766e; --red:#b42318; --redbg:#fdecea; --greenbg:#e7f4f1; --amber:#92600a; --amberbg:#fdf3dc; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:var(--ink); color:#fff; padding:18px 28px; }
+  header h1 { margin:0; font-size:22px; }
+  header p { margin:4px 0 0; color:#b9cdd2; font-size:14px; }
+  main { max-width:1080px; margin:0 auto; padding:20px 28px 60px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin-top:18px; }
+  h2 { margin:0 0 4px; font-size:16px; }
+  .hint { color:var(--muted); font-size:13px; margin:0 0 12px; }
+  label { display:block; font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:10px 0 4px; }
+  textarea, input, select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font:inherit; color:inherit; background:#fff; }
+  textarea { min-height:64px; resize:vertical; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:160px; }
+  button { font:inherit; font-weight:600; padding:8px 14px; border-radius:7px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--ink); }
+  button.danger { background:var(--red); border-color:var(--red); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+  th { text-align:left; background:var(--ink); color:#fff; padding:8px 10px; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  td { padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  td.fail { background:var(--redbg); color:var(--red); font-weight:600; }
+  td.ok-change { background:var(--greenbg); color:var(--teal); font-weight:600; }
+  .small { font-size:12px; color:var(--muted); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; font-weight:600; border:1px solid var(--line); }
+  .pill.active, .pill.pass { background:var(--greenbg); color:var(--teal); border-color:transparent; }
+  .pill.quarantined, .pill.revoked, .pill.fail { background:var(--redbg); color:var(--red); border-color:transparent; }
+  .pill.proposed, .pill.inconclusive, .pill.expired, .pill.superseded { background:var(--amberbg); color:var(--amber); border-color:transparent; }
+  .banner { padding:10px 12px; border-radius:8px; margin-top:12px; font-weight:600; }
+  .banner.pass { background:var(--greenbg); color:var(--teal); }
+  .banner.fail { background:var(--redbg); color:var(--red); }
+  .banner.inconclusive { background:var(--amberbg); color:var(--amber); }
+  pre { background:#f0f4f5; padding:10px; border-radius:7px; overflow:auto; font-size:12px; max-height:320px; }
+  #msg { margin-top:10px; font-size:13px; color:var(--red); min-height:18px; }
+  code { background:#eef2f3; padding:1px 5px; border-radius:4px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Membrane</h1>
+  <p>Preview what a new memory will make your agent do. All data is synthetic; refund tools are simulated. <span id="model"></span></p>
+</header>
+<main>
+
+<section>
+  <h2>1. Propose a memory</h2>
+  <p class="hint">A source arrives, a memory is proposed from it, and Membrane stages it. A staged memory is invisible to the live agent.</p>
+  <div class="row">
+    <div><label for="tenant">Store (tenant)</label><select id="tenant"></select></div>
+    <div><label for="scopeKind">Scope</label>
+      <select id="scopeKind"><option value="global">Global (all orders in this store)</option><option value="order">One order only</option></select></div>
+    <div><label for="orderId">Order ID (if scoped)</label><input id="orderId" placeholder="4821"></div>
+  </div>
+  <label for="source">Source text</label>
+  <textarea id="source" placeholder="Paste the note, ticket or transcribed screenshot text"></textarea>
+  <label for="memText">Proposed memory</label>
+  <textarea id="memText" placeholder="The rule the agent would remember"></textarea>
+  <div class="actions">
+    <button class="ghost" id="btnExample">Load example (broad VIP rule)</button>
+    <button class="ghost" id="btnPropose">Ask the agent to propose</button>
+    <button id="btnStage">Stage memory</button>
+  </div>
+</section>
+
+<section>
+  <h2>2. Behavior preview</h2>
+  <p class="hint">The same frozen tasks run twice in fresh sessions: View A uses current memory, View B adds the candidate. We compare the tool calls, not the wording.</p>
+  <div id="candidate" class="small">No candidate staged yet.</div>
+  <div class="actions">
+    <label for="trials" style="margin:0">Trials</label>
+    <select id="trials" style="width:70px"><option>1</option><option selected>3</option></select>
+    <button id="btnTest" disabled>Run A/B test</button>
+    <span id="busy" class="small"></span>
+  </div>
+  <div id="result"></div>
+  <div class="actions" id="decide" hidden>
+    <button id="btnAccept">Accept</button>
+    <input id="ttl" placeholder="Expire after N seconds (optional)" style="width:240px">
+    <button class="danger" id="btnQuarantine">Quarantine</button>
+    <button class="ghost" id="btnRevise">Revise: narrow to one order</button>
+  </div>
+  <div id="msg"></div>
+</section>
+
+<section>
+  <h2>3. Live agent check</h2>
+  <p class="hint">Run the live agent, with active memory only, on any frozen task. Use it after accepting, expiring or revoking a memory to see the effect.</p>
+  <div class="row">
+    <div style="flex:3"><select id="task"></select></div>
+    <div><button id="btnLive">Run live agent</button></div>
+  </div>
+  <div id="live"></div>
+</section>
+
+<section>
+  <h2>4. Memory ledger</h2>
+  <p class="hint">Every version, its scope, expiry and status. Nothing is overwritten or deleted.</p>
+  <div id="ledger"></div>
+  <pre id="audit" hidden></pre>
+</section>
+
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let demo = {}, cand = null, run = null;
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+const say = (text) => { $('msg').textContent = text || ''; };
+const scope = () => $('scopeKind').value === 'order'
+  ? {kind: 'order', order_id: $('orderId').value.trim()} : {kind: 'global'};
+const scopeLabel = s => s.kind === 'order' ? `order ${esc(s.order_id)} only` : 'global';
+
+async function refresh() {
+  const s = await api('/api/state');
+  demo = s.demo;
+  $('model').textContent = `Agent model: ${s.model.provider} / ${s.model.name}`;
+  if (!$('tenant').options.length) $('tenant').innerHTML = s.tenants.map(t => `<option>${esc(t)}</option>`).join('');
+  if (!$('task').options.length) $('task').innerHTML = s.tasks.map(t =>
+    `<option value="${esc(t._id)}">[${esc(t.tenant_id)}] order ${esc(t.order.id)} (${esc(t.customer.tier)}): ${esc(t.message.slice(0, 70))}</option>`).join('');
+  $('ledger').innerHTML = `<table><tr><th>Memory</th><th>Store</th><th>Scope</th><th>Ver.</th><th>Status</th><th>Expires</th><th></th></tr>` +
+    s.memories.map(m => `<tr><td>${esc(m.text)}<div class="small">${esc(m._id)}${m.supersedes ? ' · supersedes ' + esc(m.supersedes) : ''}</div></td>
+      <td>${esc(m.tenant_id)}</td><td>${scopeLabel(m.scope)}</td><td>${esc(m.version)}</td>
+      <td><span class="pill ${esc(m.effective_status)}">${esc(m.effective_status)}</span></td>
+      <td class="small">${esc(new Date(m.expires_at).toLocaleString())}</td>
+      <td><button class="ghost" data-audit="${esc(m._id)}">Audit</button>
+      ${m.effective_status === 'active' && !m._id.startsWith('policy_') ? `<button class="danger" data-revoke="${esc(m._id)}">Revoke</button>` : ''}</td></tr>`).join('') + `</table>`;
+}
+
+function showCandidate() {
+  $('candidate').innerHTML = cand
+    ? `<b>Candidate</b> <code>${esc(cand._id)}</code> v${esc(cand.version)} · ${esc(cand.tenant_id)} · ${scopeLabel(cand.scope)} · <span class="pill ${esc(cand.status)}">${esc(cand.status)}</span><br>${esc(cand.text)}`
+    : 'No candidate staged yet.';
+  $('btnTest').disabled = !cand || cand.status !== 'proposed';
+}
+
+function showResult(r) {
+  const cell = (c, v) => {
+    const failed = v === 'B' && c.status === 'fail';
+    const good = v === 'B' && c.changed && c.status === 'pass';
+    return `<td class="${failed ? 'fail' : good ? 'ok-change' : ''}">${esc(c[v].label)}${failed ? ': FAIL' : ''}<div class="small">${esc(c[v].passed)} trials match policy</div></td>`;
+  };
+  const why = Object.fromEntries(r.selection.map(s => [s.task_id, s.why + (s.score ? ' ' + s.score : '')]));
+  const effect = {none: 'The memory changed no tested action.', in_scope_only: 'Behavior changed only inside the memory\'s own scope.',
+                  out_of_scope: 'Behavior changed outside the memory\'s scope.'}[r.effect];
+  $('result').innerHTML = `<div class="banner ${esc(r.verdict)}">Verdict: ${esc(r.verdict.toUpperCase())}. ${esc(effect)}</div>` +
+    (r.reasons.length ? `<ul class="small">${r.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '') +
+    `<table><tr><th>Test case</th><th>Picked by</th><th>A: current memory</th><th>B: with update</th><th>Changed argument</th></tr>` +
+    r.cases.map(c => `<tr><td>[${esc(c.tenant_id)}] order ${esc(c.order_id)} · ${esc(c.customer_tier)}${c.in_candidate_scope ? ' · <b>in scope</b>' : ''}<div class="small">${esc(c.message)}</div></td>
+      <td class="small">${esc(why[c.task_id] || '')}</td>${cell(c, 'A')}${cell(c, 'B')}
+      <td class="small">${c.diff.map(d => `<code>${esc(d.field)}</code>: ${esc(d.from)} → ${esc(d.to)}`).join('<br>') || 'none'}</td></tr>`).join('') +
+    `</table><div class="small">Run <code>${esc(r.run_id)}</code>, stored in Atlas with every tool call.</div>`;
+  $('decide').hidden = false;
+  $('btnAccept').disabled = r.verdict !== 'pass';
+}
+
+$('btnExample').onclick = () => {
+  $('source').value = demo.source; $('memText').value = demo.broad; $('scopeKind').value = 'global'; $('orderId').value = '';
+};
+$('btnPropose').onclick = async () => {
+  say('');
+  try { const p = await api('/api/propose', {raw_text: $('source').value});
+        $('memText').value = p.text; $('scopeKind').value = p.scope.kind === 'order' ? 'order' : 'global'; $('orderId').value = p.scope.order_id || ''; }
+  catch (e) { say(e.message); }
+};
+$('btnStage').onclick = async () => {
+  say('');
+  try {
+    const tenant_id = $('tenant').value;
+    let source_id = null;
+    if ($('source').value.trim()) source_id = (await api('/api/sources', {tenant_id, raw_text: $('source').value})).source_id;
+    cand = await api('/api/candidates', {tenant_id, text: $('memText').value, scope: scope(), source_id});
+    run = null; $('result').innerHTML = ''; $('decide').hidden = true; showCandidate(); refresh();
+  } catch (e) { say(e.message); }
+};
+$('btnTest').onclick = async () => {
+  say(''); $('btnTest').disabled = true; $('busy').textContent = 'Running both views…';
+  try { run = await api(`/api/candidates/${cand._id}/test`, {trials: Number($('trials').value)}); showResult(run); }
+  catch (e) { say(e.message); }
+  $('busy').textContent = ''; showCandidate();
+};
+$('btnAccept').onclick = async () => {
+  say('');
+  try { const ttl = parseInt($('ttl').value, 10);
+        cand = await api(`/api/candidates/${cand._id}/accept`, {run_id: run.run_id, ttl_seconds: ttl > 0 ? ttl : null});
+        $('decide').hidden = true; showCandidate(); refresh(); }
+  catch (e) { say(e.message); }
+};
+$('btnQuarantine').onclick = async () => {
+  say('');
+  try { cand = await api(`/api/candidates/${cand._id}/quarantine`, {run_id: run ? run.run_id : null, reason: run ? run.reasons.join(' | ') || 'reviewer decision' : 'reviewer decision'});
+        $('decide').hidden = true; showCandidate(); refresh(); }
+  catch (e) { say(e.message); }
+};
+$('btnRevise').onclick = async () => {
+  say('');
+  const order = prompt('Narrow to which order ID?', demo.order_id); if (!order) return;
+  const text = prompt('Revised memory text:', order === demo.order_id ? demo.narrow : $('memText').value); if (!text) return;
+  try { cand = await api(`/api/candidates/${cand._id}/revise`, {text, scope: {kind: 'order', order_id: order}});
+        run = null; $('result').innerHTML = ''; $('decide').hidden = true; $('memText').value = text;
+        $('scopeKind').value = 'order'; $('orderId').value = order; showCandidate(); refresh(); }
+  catch (e) { say(e.message); }
+};
+$('btnLive').onclick = async () => {
+  $('live').innerHTML = '<p class="small">Running…</p>';
+  try { const r = await api('/api/live', {task_id: $('task').value});
+        const calls = r.tool_calls.length ? r.tool_calls.map(c => `<code>${esc(c.name)}</code> ${esc(JSON.stringify(c.args))}`).join('<br>') : 'No tool call';
+        $('live').innerHTML = `<table><tr><th>Tool call (simulated)</th><th>Agent reply</th><th>Memories used (${esc(r.retrieval)})</th></tr>
+          <tr><td>${calls}</td><td>${esc(r.final_text)}</td><td class="small">${r.memories_used.map(m => esc(m.text)).join('<br>')}</td></tr></table>`; }
+  catch (e) { $('live').innerHTML = `<p class="small" style="color:var(--red)">${esc(e.message)}</p>`; }
+};
+$('ledger').onclick = async (ev) => {
+  const a = ev.target.dataset.audit, r = ev.target.dataset.revoke;
+  try {
+    if (a) { $('audit').hidden = false; $('audit').textContent = JSON.stringify(await api(`/api/memories/${a}/audit`), null, 2); }
+    if (r) { const reason = prompt('Reason for revoking?', 'no longer valid'); if (!reason) return;
+             await api(`/api/memories/${r}/revoke`, {reason}); refresh(); }
+  } catch (e) { say(e.message); }
+};
+refresh().catch(e => say(e.message));
+</script>
+</body>
+</html>
