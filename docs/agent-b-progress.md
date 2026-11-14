@@ -86,3 +86,34 @@ typings.
 
 **Not run:** `npm ci`, `npm run build`, `npm test`, `npm run generate:api`, and anything against the real
 backend. The field mapping in `governedWire.ts` follows the contract text but has not met a live response.
+
+## 2026-11-14, checkpoint 4: tests for the governed-memory UI
+
+Added `frontend/tests/governed.spec.ts` (7 tests, synthetic fixtures through the real HTTP adapter): lifetime
+sent as `ttl_seconds` and order scope blocked without a customer; memory panel availability and revoke
+payload (`base_version_id`, reason, `Idempotency-Key`); stale revoke (409) shown and memory re-read;
+retrieval evidence separate from test selection with the candidate as "B only"; "provenance unavailable"
+for a run without retrieval records; active-memory run sends the base version, shows result and trace
+link, and reloads by `?execution=` without another POST; a backend lacking the governed endpoints raises no
+page alert and never switches to synthetic mode.
+
+### Verification, stated exactly
+
+Run here with the Playwright runner against an esbuild bundle of this branch served on port 5173, system
+Chrome, a local config that starts no servers: **12 passed, 1 failed** of 13. The one failure is the existing
+"local Vite proxy reaches the actual v1 backend health route" test, which needs the real FastAPI process
+and could not run in this environment. The 5 other existing tests in `review.spec.ts` pass with this
+branch's changes.
+
+Still not run: `npm ci`, the Vite build (`npm run build`), the suite under the committed
+`playwright.config.ts` (which starts Vite and the backend), `npm run generate:api`, and any real backend.
+
+### Handoff to the integrator
+
+- Commits on `feat/governed-memory-ui` after baseline `3b456a4`: `283aabe`, `49c66a5` + its revert
+  `b4579e3` (net zero), `abc811b`, and the commit carrying this entry.
+- Owned files only: `frontend/**`, `docs/agent-b-progress.md`, `docs/demo-runbook.md`. No contract, backend or
+  root configuration edits. No dependency or lockfile change.
+- After merging A's contract: run `npm run generate:api`, then replace the hand-written interfaces in
+  `frontend/src/api/governedWire.ts` with the generated ones and run `npm run build && npm test`.
+- Root README not updated: its run instructions belong with the final backend entry point.
