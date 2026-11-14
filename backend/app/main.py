@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image, UnidentifiedImageError
 from pymongo.errors import PyMongoError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .common import Problem
 from .config import Settings
@@ -47,6 +48,10 @@ def create_app(settings=None, store=None, provider=None):
     async def problem_handler(request, exc):
         return JSONResponse(status_code=exc.status, content={"error": {"code": exc.code, "message": exc.message, "details": exc.details}})
 
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error_handler(request, exc):
+        return JSONResponse(status_code=exc.status_code, content={"error": {"code": "http_error", "message": str(exc.detail), "details": {}}})
+
     @app.exception_handler(RequestValidationError)
     async def validation_handler(request, exc):
         return JSONResponse(status_code=422, content={"error": {"code": "validation_error", "message": "Request does not match the API contract", "details": {"fields": [list(e["loc"]) for e in exc.errors()]}}})
@@ -67,14 +72,19 @@ def create_app(settings=None, store=None, provider=None):
                 store.db.command("ping")
                 database = {"status": "ready", "reason": "Atlas ping succeeded"}
                 state = store.db.workspace_state.find_one(store.query()) or {}
+                if not state:
+                    database = {"status": "degraded", "reason": "Atlas ping succeeded; run workspace-scoped seed before use"}
                 checked = state.get("preflight", {})
                 if checked.get("provider_config") == service.provider.config():
                     model = checked.get("model", model)
                 from .selection import INDEX_NAME, index_definition
-                indexes = list(store.db.task_fixtures.list_search_indexes(INDEX_NAME))
-                if indexes and indexes[0].get("queryable") and indexes[0].get("latestDefinition") == index_definition(cfg.embedding_dimensions):
-                    search = {"status": "ready" if checked.get("known_neighbor_passed") else "degraded",
-                              "reason": "Index queryable" + ("; known-neighbor check passed" if checked.get("known_neighbor_passed") else "; run known-neighbor preflight")}
+                try:
+                    indexes = list(store.db.task_fixtures.list_search_indexes(INDEX_NAME))
+                    if indexes and indexes[0].get("queryable") and indexes[0].get("latestDefinition") == index_definition(cfg.embedding_dimensions):
+                        search = {"status": "ready" if checked.get("known_neighbor_passed") else "degraded",
+                                  "reason": "Index queryable" + ("; known-neighbor check passed" if checked.get("known_neighbor_passed") else "; run known-neighbor preflight")}
+                except Exception:
+                    search = {"status": "unavailable", "reason": "Search inspection failed; check Search permissions and preflight"}
             except Exception:
                 database = {"status": "degraded", "reason": "Atlas ping, initialization, or Search inspection failed; run preflight"}
         voice_health = {"status": "disabled", "reason": "Optional voice is disabled"}

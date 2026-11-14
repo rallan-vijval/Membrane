@@ -52,7 +52,9 @@ class Worker:
 
     def execute(self, run):
         s = self.store
-        config_matches = run["config"] == self.provider.config()
+        from .provider import SYSTEM, ARGUMENT_SCHEMA
+        config_matches = (run["config"] == self.provider.config() and run["system_prompt"] == SYSTEM
+                          and run["tool_schema"] == ARGUMENT_SCHEMA)
         for index, case in enumerate(run["selection"]):
             for repetition in (1, 2):
                 sides = ("baseline", "candidate") if (index + repetition) % 2 else ("candidate", "baseline")
@@ -81,14 +83,14 @@ class Worker:
                         data, raw, _ = self.provider.decide(case["task"], memories, lambda: s.reserve_call(run["run_id"]))
                         # Preserve raw evidence before schema validation or policy enforcement.
                         result["raw_responses"] = [raw]
+                        usage = raw.get("usage") or {}
+                        result["input_tokens"], result["output_tokens"] = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
                         attempt = Attempt.model_validate(data).model_dump()
                         result["attempt"] = attempt
                         scope = run["frozen_candidate"]["scope"]
                         useful = side == "candidate" and scope.get("kind") == "order" and scope.get("order_id") == "4821"
                         checks, outcome = check_attempt(attempt, case["task"], run["policy_snapshot"]["exceptions"], run["created_at"], useful)
                         result["checks"], result["tool_outcome"] = checks, outcome
-                        usage = raw.get("usage") or {}
-                        result["input_tokens"], result["output_tokens"] = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
                     except Exception as exc:
                         result["error"] = exc.code if isinstance(exc, Problem) else "invalid_or_failed_response"
                     result["calls"] = s.get("evaluation_runs", "run_id", run["run_id"])["model_calls"] - before
@@ -121,7 +123,9 @@ class Worker:
     def finish(self, run):
         cases = self.evidence(run)
         kinds = [case["classification"] for case in cases]
-        violation = any(k in ("new-policy-violation", "pre-existing-violation") for k in kinds)
+        # Missing evidence must not hide an unsafe attempt already observed elsewhere.
+        violation = any(not check["passed"] for case in cases for execution in case["executions"]
+                        for check in execution["checks"] if check["code"] != "positive_learning")
         snapshot = run["policy_snapshot"]
         scope = run["frozen_candidate"]["scope"]
         unsupported = bool(scope.get("exception_id") and not any(

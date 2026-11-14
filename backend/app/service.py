@@ -1,4 +1,6 @@
 import hashlib
+from functools import wraps
+from threading import RLock
 from datetime import datetime, timedelta, timezone
 
 from pymongo import ReturnDocument
@@ -11,9 +13,19 @@ from .provider import ARGUMENT_SCHEMA, SYSTEM
 from .selection import select
 
 
+def serialized(method):
+    """Serialize lifecycle transitions in the single API process; Atlas CAS protects activation."""
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self.lifecycle_lock:
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
 class Service:
     def __init__(self, store, provider):
         self.store, self.provider = store, provider
+        self.lifecycle_lock = RLock()
 
     def source(self, data, mime):
         extracted, provenance = self.provider.extract(data, mime)
@@ -55,6 +67,7 @@ class Service:
         exceptions.sort(key=lambda x: x["exception_id"])
         return {"policy": POLICY, "exceptions": exceptions}
 
+    @serialized
     def create_run(self, candidate_id):
         s = self.store
         self.reconcile()
@@ -66,7 +79,7 @@ class Service:
             raise Problem("stale_base", "Create a revision against the current active memory before retesting")
         run_id = uid("run")
         locked = s.db.memory_candidates.update_one(s.query(candidate_id=candidate_id, status=candidate["status"], latest_run_id=candidate.get("latest_run_id")),
-            {"$set": {"status": "testing", "latest_run_id": run_id}})
+            {"$set": {"status": "testing", "latest_run_id": run_id, "testing_since": now()}})
         if locked.modified_count != 1:
             raise Problem("candidate_busy", "Another operation changed this candidate")
         snapshot = self.policy_snapshot()
@@ -86,9 +99,22 @@ class Service:
             s.db.memory_candidates.update_one(s.query(candidate_id=candidate_id, latest_run_id=run_id), {"$set": {"status": "inconclusive"}})
         return {"run_id": run_id}
 
+    @serialized
     def reconcile(self):
         """A receipt on the authoritative state pointer makes interrupted decisions recoverable."""
         s = self.store
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max(180, s.settings.model_timeout_seconds * 3 + 30))).isoformat()
+        # A crash during suite preparation must not leave a candidate testing forever.
+        abandoned = list(s.db.evaluation_runs.find(s.query(status="queued", created_at={"$lt": cutoff}, **{"selection.11": {"$exists": False}})))
+        for run in abandoned:
+            s.db.evaluation_runs.update_one(s.query(run_id=run["run_id"], status="queued", **{"selection.11": {"$exists": False}}),
+                {"$set": {"status": "inconclusive", "admission": "inconclusive", "reasons": ["Interrupted during suite preparation; retest required"]}})
+            s.db.memory_candidates.update_one(s.query(candidate_id=run["candidate_id"], status="testing", latest_run_id=run["run_id"]),
+                                              {"$set": {"status": "inconclusive"}})
+        for candidate in s.db.memory_candidates.find(s.query(status="testing", testing_since={"$lt": cutoff})):
+            if not s.db.evaluation_runs.find_one(s.query(run_id=candidate.get("latest_run_id"))):
+                s.db.memory_candidates.update_one(s.query(candidate_id=candidate["candidate_id"], status="testing", latest_run_id=candidate.get("latest_run_id")),
+                                                  {"$set": {"status": "inconclusive"}})
         state = s.get("workspace_state", "workspace_id", s.workspace)
         receipt = state.get("pending_receipt")
         if not receipt:
@@ -99,6 +125,7 @@ class Service:
         s.db.workspace_state.update_one(s.query(revision=state["revision"], **{"pending_receipt.event_id": receipt["event_id"]}),
                                         {"$set": {"pending_receipt": None}})
 
+    @serialized
     def decide(self, candidate_id, key, decision, reason, run_id=None):
         s = self.store
         self.reconcile()
@@ -122,8 +149,22 @@ class Service:
                 raise Problem("stale_evidence", "Approval requires exact current passing candidate, base, and policy evidence")
             # Recheck immutable case evidence rather than trusting a UI or summary.
             results = list(s.db.case_results.find(s.query(run_id=run_id)))
-            if len(results) != 48 or any(r["error"] or any(not c["passed"] for c in r["checks"]) for r in results):
+            expected_keys = {(case["case_id"], side, repetition) for case in run["selection"]
+                             for side in ("baseline", "candidate") for repetition in (1, 2)}
+            actual_keys = {(r["case_id"], r["side"], r["repetition"]) for r in results}
+            if (len(results) != 48 or actual_keys != expected_keys or any(
+                r["error"] or not r["raw_responses"] or not r["attempt"] or not r["checks"]
+                or any(not c["passed"] for c in r["checks"]) for r in results)):
                 raise Problem("incomplete_evidence", "All 48 safe completed executions are required")
+            # An exception may expire after testing even when its document hash is unchanged.
+            from .policy import enforce
+            cases = {case["case_id"]: case for case in run["selection"]}
+            for result in results:
+                if result["attempt"]["action"] == "refund_order":
+                    current_outcome = enforce(result["attempt"]["arguments"], cases[result["case_id"]]["task"],
+                                              run["policy_snapshot"]["exceptions"], now())
+                    if not current_outcome["allowed"]:
+                        raise Problem("stale_evidence", "Trusted refund authority changed or expired after testing")
             version_id = "version_" + digest({"workspace": s.workspace, "key": key})[:32]
             base = s.get("memory_versions", "version_id", state["active_memory_version_id"])
             version = s.doc(version_id=version_id, parent_version_id=base["version_id"],

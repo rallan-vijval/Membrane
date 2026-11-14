@@ -109,7 +109,9 @@ def main():
             probe.save(data, format="PNG")
             provider.extract(data.getvalue(), "image/png")
             task = tasks()[0]["task"]
-            provider.decide(task, [], lambda: None)
+            from backend.app.models import Attempt
+            decision, raw, _ = provider.decide(task, [], lambda: None)
+            Attempt.model_validate(decision)
             provider.embed(["synthetic known-neighbor check"])
             model = {"status": "ready", "reason": "Model access, vision/structured decisions, and embedding dimensions verified"}
         except Exception:
