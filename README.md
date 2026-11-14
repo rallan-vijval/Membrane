@@ -53,6 +53,17 @@ python -m scripts.reset_demo                           # clean demo state
 uvicorn membrane.app:app --reload                      # open http://127.0.0.1:8000
 ```
 
+## Deploy
+
+The app is one web process. Any host that runs a Dockerfile or a Procfile works (Render, Railway, Fly).
+Set `MONGODB_URI`, `DB_NAME`, `LLM_PROVIDER` and `LLM_API_KEY` as environment variables on the host,
+and add the host's outbound IP (or `0.0.0.0/0` for the demo) to the Atlas network access list.
+
+```bash
+docker build -t membrane .
+docker run -p 8000:8000 --env-file .env membrane
+```
+
 ## Demo flow
 
 1. **Load example** then **Stage memory**: the broad VIP rule is staged for `store_a`.
