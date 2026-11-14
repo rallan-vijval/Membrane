@@ -33,16 +33,35 @@ npm run build        # typecheck + production build into dist/
 
 ## Contract status
 
-`src/api/types.ts` and `src/api/http.ts` were written from `docs/two-agent-plan.md` before
-`contracts/openapi.yaml` existed. When the backend publishes the contract:
+`src/api/types.ts`, `http.ts` and `synthetic.ts` follow `contracts/openapi.yaml` (review API v1,
+backend commit `d5e4c73`). They were aligned by hand, not generated. If the contract changes,
+update the three files together and run `npm run typecheck`.
 
-1. Regenerate or correct `src/api/types.ts` from it.
-2. Fix any drift in `src/api/http.ts` (paths, request bodies) and `src/api/synthetic.ts`.
-3. Run `npm run typecheck`.
+## What you can drop in
 
-Assumptions most likely to need changing: field names inside `Run.cases[].executions[]`
-(`outcome`, `attempt`, `enforcement`), `Run.progress`, `Run.selection[]`, the `Scope` shape,
-and the body of `POST /api/candidates/{id}/approve` (`{ run_id }`).
+The API accepts one PNG or JPEG (5 MiB, 20 megapixels). The intake panel turns other files into
+that, in the browser, and shows a note saying what it did. It never summarizes or rewrites content.
+
+| File | What is sent |
+| --- | --- |
+| PNG, JPEG | The file itself (shrunk only if over the limits) |
+| Other images (WebP, GIF, BMP…) | The same picture, re-encoded |
+| PDF | Page 1, rendered as an image (the note says how many pages were left out) |
+| Text, Markdown, CSV, JSON, email text | The text typeset as an image, first 110 lines |
+| Video (MP4, WebM, MOV) | The one frame the reviewer pauses on and picks |
+| Word, Excel, PowerPoint | Not supported: export as PDF first |
+
+## Hosting (Render)
+
+The UI is a static site. `frontend/render.yaml` is a Render blueprint for it.
+
+1. Render needs a payment method on the account before it creates any service, including free
+   static sites.
+2. New > Blueprint, choose this repo, blueprint path `frontend/render.yaml`.
+3. Set `VITE_API_BASE` to the hosted backend's origin. On the backend, set `FRONTEND_ORIGIN` to
+   the static site's URL (the API only allows that one origin).
+4. Without a hosted backend, open the site with `?synthetic=1` to show the screen with labelled
+   stand-in data.
 
 ## Behavior notes
 
