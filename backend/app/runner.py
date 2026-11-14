@@ -67,7 +67,8 @@ class Worker:
                                                                {"$set": {"lease_until": self.lease_time()}})
                     if heartbeat.matched_count != 1:
                         return
-                    memories = list(run["frozen_memory"])
+                    retrieval = next((r for r in run.get("memory_retrieval", []) if r["case_id"] == case["case_id"]), None)
+                    memories = list(retrieval["entries"] if retrieval else run["frozen_memory"])
                     if side == "candidate":
                         memories.append(run["frozen_candidate"])
                     result = s.doc(run_id=run["run_id"], case_id=case["case_id"], side=side, repetition=repetition,
@@ -80,7 +81,12 @@ class Worker:
                     try:
                         if not config_matches:
                             raise Problem("config_changed", "Provider configuration changed since run freeze")
-                        data, raw, _ = self.provider.decide(case["task"], memories, lambda: s.reserve_call(run["run_id"]))
+                        if run.get("governance_version") == 2 and (retrieval is None or retrieval["profile_id"] != self.service.embeddings.describe()["profile_id"]):
+                            raise Problem("retrieval_changed", "Frozen governed retrieval is missing or its profile changed")
+                        with self.service.tracing.span("case_execution", {"workspace_id": s.workspace, "run_id": run["run_id"],
+                            "case_id": case["case_id"], "side": side, "repetition": repetition}) as trace:
+                            data, raw, _ = self.provider.decide(case["task"], memories, lambda: s.reserve_call(run["run_id"]))
+                            result["trace_url"] = trace.trace_url
                         # Preserve raw evidence before schema validation or policy enforcement.
                         result["raw_responses"] = [raw]
                         usage = raw.get("usage") or {}

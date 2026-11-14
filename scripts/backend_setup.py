@@ -1,8 +1,8 @@
-"""Non-destructive setup for the v1 review backend (separate from the legacy demo)."""
+"""Explicit, non-destructive setup. Model probes and embedding seed are billable."""
 import argparse
 import json
 import time
-from pathlib import Path
+from datetime import datetime, timedelta
 
 from PIL import Image, ImageDraw
 from pymongo.operations import SearchIndexModel
@@ -10,36 +10,87 @@ from pymongo.operations import SearchIndexModel
 from backend.app.common import digest, now
 from backend.app.config import ROOT, Settings
 from backend.app.fixtures import exception, tasks
+from backend.app.integration_bridge import Embeddings
+from backend.app.memory_governance import MEMORY_COLLECTION, MEMORY_INDEX, batch_value, content_hash, index_definition as memory_definition
 from backend.app.policy import POLICY
+from backend.app.preflight import run_preflight
 from backend.app.provider import Provider
-from backend.app.selection import INDEX_NAME, index_definition
+from backend.app.selection import index_definition
 from backend.app.store import Store
 
 
 def seed(store, provider=None):
     store.indexes()
+    cfg = store.settings
     exc = exception()
-    store.db.trusted_exceptions.update_one(store.query(exception_id=exc["exception_id"]),
-                                          {"$setOnInsert": store.doc(**exc)}, upsert=True)
+    store.db.trusted_exceptions.update_one(store.query(exception_id=exc["exception_id"]), {"$setOnInsert": store.doc(**exc)}, upsert=True)
     for task in tasks():
-        store.db.task_fixtures.update_one(store.query(fixture_id=task["fixture_id"]),
-                                         {"$setOnInsert": store.doc(**task)}, upsert=True)
+        store.fixtures.update_one(store.query(fixture_id=task["fixture_id"]), {"$setOnInsert": store.doc(**task)}, upsert=True)
     exceptions = list(store.db.trusted_exceptions.find(store.query(), {"_id": 0, "created_at": 0}))
     exceptions.sort(key=lambda e: e["exception_id"])
     policy_hash = digest({"policy": POLICY, "exceptions": exceptions})
-    store.db.memory_versions.update_one(store.query(version_id="version_initial_v1"), {"$setOnInsert": store.doc(
-        version_id="version_initial_v1", parent_version_id=None, memories=[], candidate_id=None, run_id=None, policy_hash=policy_hash)}, upsert=True)
-    store.db.workspace_state.update_one(store.query(), {"$setOnInsert": store.doc(
-        active_memory_version_id="version_initial_v1", revision=0, pending_receipt=None, voice_characters=0)}, upsert=True)
-    if provider:
-        docs = list(store.db.task_fixtures.find(store.query(), {"_id": 0}).sort("fixture_id", 1))
-        pending = [d for d in docs if d.get("embedding_model") != provider.settings.embedding_model or len(d.get("embedding", [])) != provider.settings.embedding_dimensions]
-        for offset in range(0, len(pending), 16):
-            batch = pending[offset:offset + 16]
-            vectors = provider.embed([d["description"] for d in batch])
-            for doc, vector in zip(batch, vectors):
-                store.db.task_fixtures.update_one(store.query(fixture_id=doc["fixture_id"]), {"$set": {
-                    "embedding": vector, "embedding_model": provider.settings.embedding_model, "embedding_version": "fixture-description-v1"}})
+    initial = "version_initial_v2" if cfg.governed_memory_enabled else "version_initial_v1"
+    store.db.memory_versions.update_one(store.query(version_id=initial), {"$setOnInsert": store.doc(
+        version_id=initial, parent_version_id=None, memories=[], candidate_id=None, run_id=None, policy_hash=policy_hash)}, upsert=True)
+    store.db.workspace_state.update_one(store.query(), {"$setOnInsert": store.doc(active_memory_version_id=initial,
+        revision=0, pending_receipt=None, voice_characters=0, governance_version=2 if cfg.governed_memory_enabled else 1)}, upsert=True)
+    if cfg.governed_memory_enabled and store.get("workspace_state", "workspace_id", store.workspace).get("governance_version") != 2:
+        raise ValueError("Use a separate initialized v2 workspace; no automatic migration")
+    if not provider:
+        return
+    embeddings = Embeddings(cfg, getattr(provider, "_semaphore", None)) if cfg.governed_memory_enabled else None
+    profile_id = embeddings.describe()["profile_id"] if embeddings else None
+    docs = list(store.fixtures.find(store.query(), {"_id": 0}).sort("fixture_id", 1))
+    if embeddings and any(d.get("embedding") and d.get("profile_id") != profile_id for d in docs):
+        raise ValueError("Existing fixture vectors use another profile; preserve them and choose a separate profile/workspace")
+    pending = [d for d in docs if d.get("embedding_model") != cfg.embedding_model or len(d.get("embedding", [])) != cfg.embedding_dimensions]
+    for offset in range(0, len(pending), 16):
+        batch = pending[offset:offset + 16]
+        vectors = batch_value(embeddings.embed_documents([d["description"] for d in batch]), "vectors") if embeddings else provider.embed([d["description"] for d in batch])
+        if len(vectors) != len(batch) or any(len(v) != cfg.embedding_dimensions for v in vectors):
+            raise ValueError("Unexpected document vector count/dimensions")
+        for doc, vector in zip(batch, vectors):
+            store.fixtures.update_one(store.query(fixture_id=doc["fixture_id"]), {"$set": {
+                "embedding": vector, "embedding_model": cfg.embedding_model,
+                "embedding_version": "fixture-description-v1", "profile_id": profile_id}})
+    if embeddings:
+        collection = store.db[MEMORY_COLLECTION]
+        probe = collection.find_one(store.query(memory_id="memory_probe_v2"))
+        if probe and probe.get("profile_id") != profile_id:
+            raise ValueError("Existing memory probe uses a different profile")
+        if not probe:
+            text, scope, at = "Synthetic known-neighbor memory retrieval probe; never activated", {"kind": "preference", "order_id": None, "customer_id": None, "exception_id": None}, now()
+            vector = batch_value(embeddings.embed_documents([text]), "vectors")[0]
+            if len(vector) != cfg.embedding_dimensions:
+                raise ValueError("Memory probe dimensions differ")
+            collection.update_one(store.query(memory_id="memory_probe_v2"), {"$setOnInsert": store.doc(
+                memory_id="memory_probe_v2", text=text, scope=scope, ttl_seconds=3600, content_hash=content_hash(text, scope),
+                candidate_id="probe_not_a_candidate", version_id="probe_not_an_active_version", activated_at=at,
+                expires_at=(datetime.fromisoformat(at) + timedelta(days=365)).isoformat(), profile_id=profile_id, embedding=vector,
+                synthetic_probe=True)}, upsert=True)
+
+
+def setup_indexes(store):
+    cfg = store.settings
+    definitions = [(store.fixtures, cfg.fixture_index, index_definition(cfg.embedding_dimensions))]
+    if cfg.governed_memory_enabled:
+        definitions.append((store.db[MEMORY_COLLECTION], MEMORY_INDEX, memory_definition(cfg.embedding_dimensions)))
+    for collection, name, definition in definitions:
+        print(json.dumps({"collection": collection.name, "index": name, "definition": definition}, indent=2))
+        existing = list(collection.list_search_indexes(name))
+        if existing and existing[0].get("latestDefinition") != definition:
+            raise ValueError("Existing index definition differs; do not overwrite")
+        if not existing:
+            collection.create_search_index(SearchIndexModel(name=name, definition=definition, type="vectorSearch"))
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            found = list(collection.list_search_indexes(name))
+            if found and found[0].get("queryable"):
+                break
+            time.sleep(2)
+        else:
+            raise TimeoutError("Bounded Search readiness wait expired")
+    print("Configured indexes queryable; run known-neighbor preflight before connected acceptance")
 
 
 def screenshot(path):
@@ -64,77 +115,16 @@ def main():
     cfg = Settings()
     store, provider = Store(cfg), Provider(cfg)
     if args.command == "screenshot":
-        path = ROOT / "fixtures" / "support-4821.png"
-        screenshot(path)
-        print(str(path))
-        return
-    if args.command == "seed":
+        screenshot(ROOT / "fixtures" / "support-4821.png")
+    elif args.command == "seed":
         seed(store, provider if args.with_embeddings else None)
         print("Workspace-scoped seed complete; unrelated data preserved. Embeddings: " + str(args.with_embeddings))
     elif args.command == "index":
-        definition = index_definition(cfg.embedding_dimensions)
-        print(json.dumps(definition, indent=2))
-        indexes = list(store.db.task_fixtures.list_search_indexes(INDEX_NAME))
-        if indexes:
-            if indexes[0].get("latestDefinition") != definition:
-                raise RuntimeError("Existing index definition differs; review manually, do not overwrite")
-        else:
-            store.db.task_fixtures.create_search_index(SearchIndexModel(name=INDEX_NAME, definition=definition, type="vectorSearch"))
-        deadline = time.monotonic() + 90
-        while time.monotonic() < deadline:
-            found = list(store.db.task_fixtures.list_search_indexes(INDEX_NAME))
-            if found and found[0].get("queryable"):
-                print("Index queryable. Run preflight for known-neighbor verification.")
-                return
-            time.sleep(2)
-        raise RuntimeError("Search index is not queryable yet; bounded wait expired")
+        setup_indexes(store)
     else:
-        statuses = {}
-        try:
-            store.db.command("ping")
-            version = store.db.command("buildInfo")["version"]
-            statuses["database"] = {"status": "ready", "server_version": version}
-        except Exception:
-            statuses["database"] = {"status": "unavailable", "reason": "Check MONGODB_URI, database permissions, and Atlas network access"}
-        model = {"status": "unavailable", "reason": "Check OPENAI_API_KEY and model IDs"}
-        try:
-            for model_id in {cfg.agent_model, cfg.vision_model, cfg.embedding_model}:
-                if not model_id:
-                    raise ValueError("Missing model ID")
-                provider.client.models.retrieve(model_id)
-            from io import BytesIO
-            probe = Image.new("RGB", (200, 80), "white")
-            ImageDraw.Draw(probe).text((10, 20), "SYNTHETIC TEST 4821", fill="black", font_size=16)
-            data = BytesIO()
-            probe.save(data, format="PNG")
-            provider.extract(data.getvalue(), "image/png")
-            task = tasks()[0]["task"]
-            from backend.app.models import Attempt
-            decision, raw, _ = provider.decide(task, [], lambda: None)
-            Attempt.model_validate(decision)
-            provider.embed(["synthetic known-neighbor check"])
-            model = {"status": "ready", "reason": "Model access, vision/structured decisions, and embedding dimensions verified"}
-        except Exception:
-            pass
-        statuses["model"] = model
-        known = False
-        try:
-            fixture = store.db.task_fixtures.find_one(store.query(fixture_id="development-01"))
-            if not fixture or fixture.get("embedding_model") != cfg.embedding_model:
-                raise ValueError("Seed embeddings first")
-            found = list(store.db.task_fixtures.aggregate([{"$vectorSearch": {"index": INDEX_NAME,
-                "path": "embedding", "queryVector": fixture["embedding"], "exact": True, "limit": 4,
-                "filter": store.query(split="development", enabled=True)}}, {"$project": {"fixture_id": 1}}]))
-            known = "development-01" in [f["fixture_id"] for f in found]
-            statuses["search"] = {"status": "ready" if known else "degraded", "reason": "Known-neighbor query " + ("passed" if known else "failed")}
-        except Exception:
-            statuses["search"] = {"status": "unavailable", "reason": "Seed embeddings and create fixture_semantic_v1; no fallback"}
-        if statuses["database"]["status"] == "ready":
-            store.db.workspace_state.update_one(store.query(), {"$set": {"preflight": {
-                "checked_at": now(), "provider_config": provider.config(), "model": model, "known_neighbor_passed": known}}})
-        print(json.dumps({"checks": statuses, "calls": {"admission_initial": 48, "admission_max_turns_before_retries": 144,
-            "configured_cap": cfg.max_run_model_calls}, "preflight_is_billable": True}, indent=2))
-        if any(item["status"] != "ready" for item in statuses.values()):
+        report = run_preflight(store, provider)
+        print(json.dumps(report, indent=2))
+        if any(c["status"] not in ("ready", "disabled") for c in report["checks"].values()):
             raise SystemExit(1)
 
 
@@ -142,5 +132,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception:
-        print("Setup failed. Verify local credentials, configured model access, database permissions, and Search setup. Secret-bearing provider details are intentionally omitted.")
+        print("Setup failed. Check local keys, selected provider/model, workspace and Search permissions. Secret-bearing details are omitted.")
         raise SystemExit(1)

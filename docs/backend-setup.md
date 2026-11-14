@@ -1,5 +1,27 @@
 # Agent A: review API backend
 
+## Governed-memory phase and DeepSeek (current Agent A branch)
+
+The user selected **DeepSeek** for generation. The v2 example uses `LLM_PROVIDER=deepseek`, `DEEPSEEK_API_KEY`, `AGENT_MODEL=deepseek-flash`, `VISION_PROVIDER=deepseek`, `VISION_MODEL=deepseek-flash`, and `DEEPSEEK_BASE_URL=https://api.deepseek.com`. [Current official Responses documentation](https://api-docs.deepseek.com/api/create-response/) supports JSON schemas and image input for that model; preflight verifies actual account capability. OpenAI generation remains an explicit compatibility option, never a fallback. Agent and vision provider/model/key selection are independent. A DeepSeek key cannot authenticate Voyage, ElevenLabs or Atlas.
+
+For the new demo, use `GOVERNED_MEMORY_ENABLED=true`, `WORKSPACE_ID=membrane-demo-v2`, `EMBEDDING_PROVIDER=voyage`, `EMBEDDING_MODEL=voyage-4`, `EMBEDDING_DIMENSIONS=1024` and `VOYAGE_API_KEY`. Agent C owns `backend/app/integrations/api.py` and its dependency file; integrate that branch before attempting real embeddings/tracing. The application starts without it and reports unavailability; it never substitutes a fake provider or database. Until C's handoff, our bridge is tested against explicit facade doubles. Do not add duplicate SDK adapters to A's files.
+
+The code defaults `GOVERNED_MEMORY_ENABLED=false` and OpenAI embeddings for existing configurations; the updated `.env.example` explicitly selects the new v2 profile. Copy it only for a fresh setup, preserving real credentials. Legacy static-demo `LLM_PROVIDER=anthropic` is not a v1/v2 generation option; use a separate legacy configuration if running that preserved implementation.
+
+Use the same seed/index/preflight commands below. V2 seed creates `task_fixtures_v2` and immutable `memory_entries_v2`; it does not rewrite v1 fixtures, existing vectors, old memory versions, or active pointers. A previously initialized v1 workspace cannot silently become v2: choose the separate v2 workspace. The setup inserts a synthetic known-neighbor memory probe which is **never** an active member and cannot reach the agent. Index setup creates/verifies `fixture_semantic_v2` and `memory_semantic_v1` and will not overwrite a mismatched existing definition.
+
+Candidate/revision `ttl_seconds` defaults to 3600 (60–86400 allowed) and is included in its content hash. A memory's expiry begins when its immutable prepared entry is persisted after embedding. Expired entries are excluded at retrieval; logical expiry never deletes audit history. Revoke creates another immutable version and recovers through an authoritative pointer receipt. Candidate state remains approved even if its active memory is later revoked. Old passing evidence without governed retrieval/TTL cannot activate a v2 memory.
+
+Each fixture's base retrieval is frozen once, reused for A/B and both repetitions. Exact order/customer memories are included deterministically; up to six eligible global/preference entries come from real Vector Search. Workspace/membership/scope/hash/expiry are rechecked against live documents after retrieval to account for index lag. Missing/mismatched search is inconclusive, even for an empty active snapshot; no whole-snapshot or keyword fallback.
+
+`POST /api/agent/tasks/{fixture_id}/execute` separately demonstrates post-activation behavior, with an explicit active base version and at most two attempted model requests. It does not create admission evidence. If memory/policy changes or expires during the model request, the attempted action/raw output remain visible and simulated tool enforcement is denied. GET reload of the stored execution makes no model calls.
+
+Preflight reports database, generation, vision, embeddings, fixture search and memory search separately. Ordinary health reads never run paid probes. Optional LangSmith is disabled by default and remains metadata-only/best-effort through C's safe facade; A's wrapper also isolates enter/exit/output failures. It cannot retry a model call or change admission. Key setup and credit eligibility are separate from advertised allowances.
+
+For an explicit connected lifecycle exercise after setup, run `python -m scripts.backend_smoke --approve --exercise-revoke`. It makes two admission suites plus extraction, retrieval/activation embeddings and two active-memory generation calls, and intentionally activates then revokes the new entry. Without those flags the smoke retains its original stop-at-eligibility behavior. Report actual model behavior; never fabricate a regression.
+
+The earlier setup notes below describe the preserved v1 profile where applicable. For v2 use the settings and collections in this section; the integrated frontend/Agent C changes are separate handoffs.
+
 The teammate owns the new React frontend. This backend lives on `feat/membrane-backend`. Existing `membrane/` code and its static UI are preserved; the new frontend must use the **v1** entrypoint below, not `membrane.app:app`.
 
 ## PowerShell startup

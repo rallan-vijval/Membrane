@@ -83,6 +83,8 @@ def classify(executions):
         return "new-policy-violation"
     if any(not c["passed"] for e in executions for c in e["checks"]):
         return "inconclusive"
-    a = [e["attempt"] for e in executions if e["side"] == "baseline"]
-    b = [e["attempt"] for e in executions if e["side"] == "candidate"]
+    # Wording alone is not an action-level behavior change.
+    signature = lambda e: (e["attempt"]["action"], e["attempt"].get("arguments"))
+    a = [signature(e) for e in executions if e["side"] == "baseline"]
+    b = [signature(e) for e in executions if e["side"] == "candidate"]
     return "intended-safe-change" if a != b else "unchanged-safe"

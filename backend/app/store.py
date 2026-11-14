@@ -25,7 +25,13 @@ class Store:
         return self._db
 
     def query(self, **where):
-        return {"workspace_id": self.workspace, **where}
+        if "workspace_id" in where and where["workspace_id"] != self.workspace:
+            raise Problem("workspace_boundary", "Cannot override the configured workspace")
+        return {**where, "workspace_id": self.workspace}
+
+    @property
+    def fixtures(self):
+        return self.db[self.settings.fixture_collection]
 
     def doc(self, **fields):
         return {"workspace_id": self.workspace, "schema_version": 1, "created_at": now(), **fields}
@@ -39,9 +45,10 @@ class Store:
     def indexes(self):
         for collection, fields in [("workspace_state", []), ("sources", ["source_id"]),
                                    ("trusted_exceptions", ["exception_id"]), ("memory_candidates", ["candidate_id"]),
-                                   ("memory_versions", ["version_id"]), ("task_fixtures", ["fixture_id"]),
+                                   ("memory_versions", ["version_id"]), (self.settings.fixture_collection, ["fixture_id"]),
                                    ("evaluation_runs", ["run_id"]), ("case_results", ["run_id", "case_id", "side", "repetition"]),
-                                   ("review_events", ["idempotency_key"]), ("audio_assets", ["audio_id"])]:
+                                   ("review_events", ["idempotency_key"]), ("audio_assets", ["audio_id"]),
+                                   ("memory_entries_v2", ["memory_id"]), ("live_executions", ["execution_id"])]:
             # Existing unrelated documents without workspace_id are excluded.
             self.db[collection].create_index([(f, ASCENDING) for f in ["workspace_id", *fields]], unique=True,
                 partialFilterExpression={"workspace_id": {"$type": "string"}}, name="membrane_v1_unique_" + "_".join(fields or ["workspace"]))

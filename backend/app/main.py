@@ -23,10 +23,10 @@ from .store import Store
 from .voice import Voice
 
 
-def create_app(settings=None, store=None, provider=None):
+def create_app(settings=None, store=None, provider=None, embeddings=None, tracer=None):
     cfg = settings or Settings()
     store = store or Store(cfg)
-    service = Service(store, provider or Provider(cfg))
+    service = Service(store, provider or Provider(cfg), embeddings, tracer)
     worker = Worker(service)
     voice = Voice(service)
 
@@ -65,9 +65,21 @@ def create_app(settings=None, store=None, provider=None):
     def health():
         database = {"status": "unavailable", "reason": "Set MONGODB_URI and run backend preflight"}
         search = {"status": "unavailable", "reason": "Vector Search has not been verified"}
-        model = {"status": "unavailable", "reason": "Set OPENAI_API_KEY, AGENT_MODEL, and VISION_MODEL"}
-        if cfg.openai_api_key.get_secret_value() and cfg.agent_model and cfg.vision_model:
-            model = {"status": "degraded", "reason": "Configured; run preflight to verify model capabilities"}
+        agent_key = cfg.deepseek_api_key if cfg.llm_provider == "deepseek" else cfg.openai_api_key
+        vision_key = cfg.deepseek_api_key if cfg.vision_provider == "deepseek" else cfg.openai_api_key
+        embedding_key = cfg.voyage_api_key if cfg.embedding_provider == "voyage" else cfg.openai_api_key
+        model = {"status": "degraded" if agent_key.get_secret_value() and cfg.agent_model else "unavailable",
+                 "reason": "Configured; verify generation with preflight" if agent_key.get_secret_value() and cfg.agent_model else f"Set {'DEEPSEEK_API_KEY' if cfg.llm_provider == 'deepseek' else 'OPENAI_API_KEY'} and AGENT_MODEL"}
+        vision_health = {"status": "degraded" if vision_key.get_secret_value() and cfg.vision_model else "unavailable",
+                         "reason": "Configured; verify actual image extraction with preflight" if vision_key.get_secret_value() and cfg.vision_model else f"Set {'DEEPSEEK_API_KEY' if cfg.vision_provider == 'deepseek' else 'OPENAI_API_KEY'} and VISION_MODEL"}
+        embedding_health = {"status": "degraded" if embedding_key.get_secret_value() else "unavailable",
+                            "reason": "Configured; verify profile/dimensions with preflight" if embedding_key.get_secret_value() else f"Set {'VOYAGE_API_KEY' if cfg.embedding_provider == 'voyage' else 'OPENAI_API_KEY'}"}
+        memory_search = {"status": "unavailable" if cfg.governed_memory_enabled else "disabled",
+                         "reason": "Memory Search needs initialization and preflight" if cfg.governed_memory_enabled else "Governed memory is disabled"}
+        tracing_health = {"status": "degraded" if cfg.langsmith_tracing else "disabled",
+                          "reason": "Optional tracing configured; not verified" if cfg.langsmith_tracing else "Optional tracing disabled"}
+        if cfg.langsmith_tracing and not cfg.langsmith_api_key.get_secret_value():
+            tracing_health = {"status": "unavailable", "reason": "Set LANGSMITH_API_KEY or disable tracing; review remains usable"}
         if cfg.mongodb_uri.get_secret_value() and "<" not in cfg.mongodb_uri.get_secret_value():
             try:
                 store.db.command("ping")
@@ -78,21 +90,40 @@ def create_app(settings=None, store=None, provider=None):
                 checked = state.get("preflight", {})
                 if checked.get("provider_config") == service.provider.config():
                     model = checked.get("model", model)
-                from .selection import INDEX_NAME, index_definition
+                    vision_health = checked.get("vision", vision_health)
+                    embedding_health = checked.get("embeddings", embedding_health)
+                from .selection import index_definition
                 try:
-                    indexes = list(store.db.task_fixtures.list_search_indexes(INDEX_NAME))
+                    indexes = list(store.fixtures.list_search_indexes(cfg.fixture_index))
                     if indexes and indexes[0].get("queryable") and indexes[0].get("latestDefinition") == index_definition(cfg.embedding_dimensions):
                         search = {"status": "ready" if checked.get("known_neighbor_passed") else "degraded",
                                   "reason": "Index queryable" + ("; known-neighbor check passed" if checked.get("known_neighbor_passed") else "; run known-neighbor preflight")}
                 except Exception:
                     search = {"status": "unavailable", "reason": "Search inspection failed; check Search permissions and preflight"}
+                if cfg.governed_memory_enabled:
+                    current_profile = None
+                    try:
+                        current_profile = service.embeddings.describe()["profile_id"]
+                        if current_profile != checked.get("profile_id"):
+                            embedding_health = {"status": "degraded", "reason": "Current embedding profile needs a new preflight"}
+                    except Exception:
+                        embedding_health = {"status": "unavailable", "reason": "Embedding facade/configuration is unavailable; integrate Agent C and configure its key"}
+                    try:
+                        service.memory.require_enabled()
+                        service.memory.ensure_index()
+                        verified = current_profile is not None and checked.get("profile_id") == current_profile and checked.get("memory_known_neighbor_passed")
+                        memory_search = {"status": "ready" if verified else "degraded",
+                                         "reason": "Memory index queryable; " + ("known-neighbor passed for current profile" if verified else "run known-neighbor preflight for current profile")}
+                    except Exception:
+                        memory_search = {"status": "unavailable", "reason": "Governed workspace or memory index not initialized/queryable"}
             except Exception:
                 database = {"status": "degraded", "reason": "Atlas ping, initialization, or Search inspection failed; run preflight"}
         voice_health = {"status": "disabled", "reason": "Optional voice is disabled"}
         if cfg.voice_enabled:
             voice_health = {"status": "degraded" if cfg.elevenlabs_api_key.get_secret_value() and cfg.elevenlabs_voice_id else "unavailable",
                             "reason": "Voice configured; account credits and model access unverified" if cfg.elevenlabs_api_key.get_secret_value() and cfg.elevenlabs_voice_id else "Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID"}
-        return {"database": database, "model": model, "search": search, "voice": voice_health, "workspace_id": cfg.workspace_id}
+        return {"database": database, "model": model, "search": search, "voice": voice_health, "workspace_id": cfg.workspace_id,
+                "vision": vision_health, "embeddings": embedding_health, "memory_search": memory_search, "tracing": tracing_health}
 
     @app.post("/api/sources", response_model=Source, status_code=201)
     async def upload(file: Annotated[UploadFile, File()]):

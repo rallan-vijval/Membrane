@@ -2,7 +2,7 @@
 import json
 
 from backend.app.config import ROOT
-from backend.app.models import Candidate, ErrorResponse, Health, Run, Source, Version
+from backend.app.models import Candidate, ErrorResponse, Health, Run, Source, Version, MemoryEntries, TaskOptions, RevokeResult
 
 
 def examples():
@@ -37,6 +37,9 @@ def examples():
             "reasons": ["Synthetic example: Vector Search unavailable; no substitute passing suite"]}),
         "error_stale_approval": ErrorResponse(error={"code": "stale_evidence",
             "message": "Approval requires exact current passing candidate, base, and policy evidence", "details": {}}),
+        "memory_entries_empty": MemoryEntries(version_id="version_initial_v2", evaluated_at=timestamp, items=[], truncated=False),
+        "task_options": TaskOptions(items=[{"fixture_id": "development-01", "description": "SYNTHETIC order 4821 task choice"}], truncated=False),
+        "revoke_result": RevokeResult(version_id="version_SYNTHETIC_after_revoke", event_id="event_SYNTHETIC_revoke"),
     }
     # Revalidate copies as well: model_copy does not itself validate updates.
     return {name: type(doc).model_validate(doc.model_dump()).model_dump() for name, doc in docs.items()}

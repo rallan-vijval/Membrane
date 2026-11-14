@@ -11,6 +11,8 @@ from .models import Candidate, Scope, Source, Version
 from .policy import POLICY
 from .provider import ARGUMENT_SCHEMA, SYSTEM
 from .selection import select
+from .integration_bridge import Embeddings, SafeTracing
+from .memory_governance import MemoryGovernance, content_hash
 
 
 def serialized(method):
@@ -23,9 +25,12 @@ def serialized(method):
 
 
 class Service:
-    def __init__(self, store, provider):
+    def __init__(self, store, provider, embeddings=None, tracer=None):
         self.store, self.provider = store, provider
         self.lifecycle_lock = RLock()
+        self.embeddings = embeddings or Embeddings(store.settings, getattr(provider, "_semaphore", None))
+        self.tracing = SafeTracing(store.settings, tracer)
+        self.memory = MemoryGovernance(self)
 
     def source(self, data, mime):
         extracted, provenance = self.provider.extract(data, mime)
@@ -50,7 +55,7 @@ class Service:
         scope = body.scope.model_dump()
         doc = self.store.doc(candidate_id=uid("candidate"), source_id=body.source_id, text=body.text,
             scope=scope, parent_candidate_id=parent, base_version_id=body.base_version_id,
-            content_hash=digest({"text": body.text, "scope": scope}), status="staged", latest_run_id=None)
+            ttl_seconds=body.ttl_seconds, content_hash=content_hash(body.text, scope, body.ttl_seconds), status="staged", latest_run_id=None)
         self.store.db.memory_candidates.insert_one(doc)
         return self.public(Candidate, doc)
 
@@ -60,7 +65,7 @@ class Service:
         if old["status"] in ("testing", "approved"):
             raise Problem("invalid_state", "Cannot revise a testing or approved candidate")
         return self.stage(CandidateIn(source_id=old["source_id"], text=body.text, scope=body.scope,
-                          base_version_id=self.store.active()["version_id"]), candidate_id)
+                          ttl_seconds=body.ttl_seconds, base_version_id=self.store.active()["version_id"]), candidate_id)
 
     def policy_snapshot(self):
         exceptions = list(self.store.db.trusted_exceptions.find(self.store.query(), {"_id": 0, "created_at": 0}))
@@ -71,7 +76,11 @@ class Service:
     def create_run(self, candidate_id):
         s = self.store
         self.reconcile()
+        if s.settings.governed_memory_enabled:
+            self.memory.require_enabled()
         candidate = s.get("memory_candidates", "candidate_id", candidate_id)
+        if candidate["content_hash"] != content_hash(candidate["text"], candidate["scope"], candidate.get("ttl_seconds", 3600)):
+            raise Problem("legacy_candidate", "Create a new revision with lifetime-aware content before testing")
         if candidate["status"] not in ("staged", "eligible", "inconclusive"):
             raise Problem("invalid_state", "Only staged, eligible, or inconclusive candidates may be tested")
         active = s.active()
@@ -86,13 +95,21 @@ class Service:
         run = s.doc(run_id=run_id, candidate_id=candidate_id, status="queued", admission=None, reasons=[],
             progress={"completed": 0, "total": 48}, selection=[], selection_metadata={}, summary={}, usage={},
             config=self.provider.config(), base_version_id=active["version_id"], candidate_hash=candidate["content_hash"],
-            frozen_candidate={"text": candidate["text"], "scope": candidate["scope"]}, frozen_memory=active["memories"],
+            frozen_candidate={"text": candidate["text"], "scope": candidate["scope"], "ttl_seconds": candidate.get("ttl_seconds", 3600)}, frozen_memory=active["memories"],
             policy_snapshot=snapshot, policy_hash=digest(snapshot), tool_schema=ARGUMENT_SCHEMA, system_prompt=SYSTEM,
-            model_calls=0, lease_until=None, lease_owner=None, live=True)
+            model_calls=0, lease_until=None, lease_owner=None, live=True, memory_retrieval=[], governance_version=2 if s.settings.governed_memory_enabled else 1)
         try:
             s.db.evaluation_runs.insert_one(run)
-            selection, metadata = select(s, self.provider, candidate)
-            s.db.evaluation_runs.update_one(s.query(run_id=run_id), {"$set": {"selection": selection, "selection_metadata": metadata}})
+            selection, metadata = select(s, self.provider, candidate, self.embeddings) if s.settings.governed_memory_enabled else select(s, self.provider, candidate)
+            retrievals = []
+            if s.settings.governed_memory_enabled:
+                with self.tracing.span("freeze_memory_retrieval", {"workspace_id": s.workspace, "run_id": run_id}):
+                    retrievals = [self.memory.retrieve(case["task"], case["case_id"], active, run["created_at"]) for case in selection]
+                metadata["memory_profile_id"] = self.embeddings.describe()["profile_id"]
+            if s.active()["version_id"] != active["version_id"]:
+                raise Problem("stale_base", "Active memory changed while preparing the suite; retest")
+            s.db.evaluation_runs.update_one(s.query(run_id=run_id), {"$set": {"selection": selection, "selection_metadata": metadata,
+                "memory_retrieval": retrievals}})
         except Exception as exc:
             message = exc.message if isinstance(exc, Problem) else "Selection or persistence failed"
             s.db.evaluation_runs.update_one(s.query(run_id=run_id), {"$set": {"status": "inconclusive", "admission": "inconclusive", "reasons": [message]}})
@@ -119,8 +136,9 @@ class Service:
         receipt = state.get("pending_receipt")
         if not receipt:
             return
-        s.db.memory_candidates.update_one(s.query(candidate_id=receipt["candidate_id"]),
-            {"$set": {"status": "approved" if receipt["decision"] == "approve" else "quarantined"}})
+        if receipt["decision"] != "revoke":
+            s.db.memory_candidates.update_one(s.query(candidate_id=receipt["candidate_id"]),
+                {"$set": {"status": "approved" if receipt["decision"] == "approve" else "quarantined"}})
         s.db.review_events.update_one(s.query(idempotency_key=receipt["idempotency_key"]), {"$setOnInsert": receipt}, upsert=True)
         s.db.workspace_state.update_one(s.query(revision=state["revision"], **{"pending_receipt.event_id": receipt["event_id"]}),
                                         {"$set": {"pending_receipt": None}})
@@ -144,9 +162,16 @@ class Service:
             run = s.get("evaluation_runs", "run_id", run_id)
             if (run["status"] != "completed" or run["admission"] != "eligible" or run["progress"]["completed"] != 48
                 or run["candidate_id"] != candidate_id or cand["latest_run_id"] != run_id
-                or run["candidate_hash"] != cand["content_hash"] or cand["content_hash"] != digest({"text": cand["text"], "scope": cand["scope"]})
+                or run["candidate_hash"] != cand["content_hash"] or cand["content_hash"] != content_hash(cand["text"], cand["scope"], cand.get("ttl_seconds", 3600))
                 or run["policy_hash"] != digest(self.policy_snapshot()) or run["base_version_id"] != state["active_memory_version_id"]):
                 raise Problem("stale_evidence", "Approval requires exact current passing candidate, base, and policy evidence")
+            if s.settings.governed_memory_enabled:
+                self.memory.require_enabled()
+                if run.get("governance_version") != 2 or len(run.get("memory_retrieval", [])) != 12:
+                    raise Problem("stale_evidence", "Retest using the initialized governed-memory profile")
+                if any(r["profile_id"] != self.embeddings.describe()["profile_id"] for r in run["memory_retrieval"]):
+                    raise Problem("stale_evidence", "Embedding profile changed; retest")
+                self.memory.validate_frozen(run["memory_retrieval"], now())
             # Recheck immutable case evidence rather than trusting a UI or summary.
             results = list(s.db.case_results.find(s.query(run_id=run_id)))
             expected_keys = {(case["case_id"], side, repetition) for case in run["selection"]
@@ -167,8 +192,15 @@ class Service:
                         raise Problem("stale_evidence", "Trusted refund authority changed or expired after testing")
             version_id = "version_" + digest({"workspace": s.workspace, "key": key})[:32]
             base = s.get("memory_versions", "version_id", state["active_memory_version_id"])
+            if len(base["memories"]) >= 100:
+                raise Problem("memory_limit", "Revoke an entry before exceeding the 100-memory demo limit")
+            entry = {"text": cand["text"], "scope": cand["scope"], "candidate_id": candidate_id}
+            if s.settings.governed_memory_enabled:
+                entry = self.memory.prepare_entry(self.memory.make_entry(cand, version_id), cand["ttl_seconds"])
+                if datetime.fromisoformat(entry["expires_at"]) <= datetime.now(timezone.utc):
+                    raise Problem("stale_evidence", "Prepared memory expired; use a fresh decision key")
             version = s.doc(version_id=version_id, parent_version_id=base["version_id"],
-                memories=base["memories"] + [{"text": cand["text"], "scope": cand["scope"], "candidate_id": candidate_id}],
+                memories=base["memories"] + [entry],
                 candidate_id=candidate_id, run_id=run_id, policy_hash=run["policy_hash"])
             s.db.memory_versions.update_one(s.query(version_id=version_id), {"$setOnInsert": version}, upsert=True)
         receipt = s.doc(event_id="event_" + digest({"workspace": s.workspace, "key": key})[:32], actor="Local demo reviewer",
@@ -187,6 +219,59 @@ class Service:
             raise Problem("concurrent_decision", "Another decision changed workspace state; refresh and retest")
         self.reconcile()
         return self.public(Candidate, s.get("memory_candidates", "candidate_id", candidate_id))
+
+    def memory_entries(self):
+        return self.memory.list_entries()
+
+    @serialized
+    def revoke(self, memory_id, body, key):
+        s = self.store
+        self.memory.require_enabled()
+        self.reconcile()
+        request_hash = digest({"memory_id": memory_id, "base_version_id": body.base_version_id, "reason": body.reason, "decision": "revoke"})
+        prior = s.db.review_events.find_one(s.query(idempotency_key=key))
+        if prior:
+            if prior["request_hash"] != request_hash:
+                raise Problem("idempotency_conflict", "Idempotency key belongs to a different decision")
+            return {"version_id": prior["version_id"], "event_id": prior["event_id"]}
+        state = s.get("workspace_state", "workspace_id", s.workspace)
+        base = s.active()
+        if body.base_version_id != base["version_id"]:
+            raise Problem("stale_base", "Active version changed; refresh before revoking")
+        entry = next((e for e in base["memories"] if e.get("memory_id") == memory_id), None)
+        if entry is None:
+            raise Problem("memory_not_active", "Memory is no longer in the active snapshot")
+        version_id = "version_" + digest({"workspace": s.workspace, "key": key, "decision": "revoke"})[:32]
+        version = s.doc(version_id=version_id, parent_version_id=base["version_id"],
+            memories=[e for e in base["memories"] if e.get("memory_id") != memory_id], candidate_id=None,
+            run_id=None, policy_hash=digest(self.policy_snapshot()))
+        s.db.memory_versions.update_one(s.query(version_id=version_id), {"$setOnInsert": version}, upsert=True)
+        receipt = s.doc(event_id="event_" + digest({"workspace": s.workspace, "key": key})[:32], actor="Local demo reviewer",
+            decision="revoke", candidate_id=entry["candidate_id"], run_id=None, version_id=version_id,
+            memory_id=memory_id, base_version_id=base["version_id"], reason=body.reason, idempotency_key=key, request_hash=request_hash)
+        changed = s.db.workspace_state.update_one(s.query(revision=state["revision"], pending_receipt=None),
+            {"$set": {"active_memory_version_id": version_id, "pending_receipt": receipt}, "$inc": {"revision": 1}})
+        if changed.modified_count != 1:
+            self.reconcile()
+            prior = s.db.review_events.find_one(s.query(idempotency_key=key))
+            if prior and prior["request_hash"] == request_hash:
+                return {"version_id": prior["version_id"], "event_id": prior["event_id"]}
+            raise Problem("concurrent_decision", "Workspace changed during revocation; refresh")
+        self.reconcile()
+        return {"version_id": version_id, "event_id": receipt["event_id"]}
+
+    def tasks(self):
+        docs = list(self.store.fixtures.find(self.store.query(split="development", enabled=True),
+            {"_id": 0, "fixture_id": 1, "description": 1}).sort("fixture_id", 1).limit(101))
+        return {"items": docs[:100], "truncated": len(docs) > 100}
+
+    def execute_active(self, fixture_id, body):
+        from .active_execution import execute
+        return execute(self, fixture_id, body)
+
+    def active_execution(self, execution_id):
+        from .models import ActiveExecution
+        return self.public(ActiveExecution, self.store.get("live_executions", "execution_id", execution_id))
 
     def history(self):
         self.reconcile()

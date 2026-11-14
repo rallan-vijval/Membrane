@@ -2,6 +2,8 @@
 
 Status: **PLAN ONLY — no application implementation authorized by this document.**
 
+Implementation update: the user subsequently authorized Agent A to begin on its branch and selected **DeepSeek** as generation provider. A owns `LLM_PROVIDER`, `DEEPSEEK_API_KEY`, `VISION_PROVIDER` and independent model settings in the existing generation adapter; C continues to own Voyage/OpenAI embeddings and LangSmith only. Current DeepSeek docs advertise Responses-format JSON schemas and image input for `deepseek-flash`; preflight must verify actual account capability. Earlier OpenAI-generation statements below describe the original default and are superseded by this steering. This branch does not authorize changes to main or another agent's owned files.
+
 Shared baseline: `3b456a4` on `main` (integrated backend + frontend). Our branch: `feat/governed-memory-backend` (Agent A). Teammate branches: `feat/governed-memory-ui` (Agent B) and `feat/provider-integrations` (Agent C), each created by its owner from the same baseline. Only planning files change in this checkpoint; `main` stays unchanged. No implementation agents are started by this planning task.
 
 ## Goal and priorities

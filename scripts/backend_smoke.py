@@ -13,7 +13,10 @@ from backend.app.fixtures import BROAD, NARROW
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--approve", action="store_true", help="Explicitly approve the exact eligible scoped revision; changes active memory")
+    parser.add_argument("--exercise-revoke", action="store_true", help="After explicit approval, execute with active memory, revoke it, and execute again (additional billable calls)")
     args = parser.parse_args()
+    if args.exercise_revoke and not args.approve:
+        parser.error("--exercise-revoke requires --approve")
     with httpx.Client(base_url="http://127.0.0.1:8000", timeout=120) as client:
         def call(method, path, **kwargs):
             response = client.request(method, path, **kwargs)
@@ -29,7 +32,10 @@ def main():
                 time.sleep(2)
             raise RuntimeError("Run did not finish within the bounded smoke timeout")
         health = call("GET", "/api/health")
-        if any(health[key]["status"] != "ready" for key in ("database", "model", "search")):
+        required = ["database", "model", "vision", "embeddings", "search"]
+        if health["memory_search"]["status"] != "disabled":
+            required.append("memory_search")
+        if any(health[key]["status"] != "ready" for key in required):
             print(json.dumps(health, indent=2))
             raise SystemExit("Configure and pass preflight before live smoke")
         base = call("GET", "/api/memory/active")
@@ -56,6 +62,17 @@ def main():
             assert active["candidate_id"] == revised["candidate_id"]
             assert call("GET", "/api/history")["versions"][0]["version_id"] == active["version_id"]
             print("Exact eligible version activated and reloaded from Atlas. Restart the service and verify active/history again.")
+            if args.exercise_revoke:
+                memory = next(e for e in call("GET", "/api/memory/entries")["items"] if e["candidate_id"] == revised["candidate_id"])
+                before = call("POST", "/api/agent/tasks/development-01/execute", json={"base_version_id": active["version_id"]})
+                assert memory["memory_id"] in [e["memory_id"] for e in before["retrieval"]["entries"]]
+                revoked = call("POST", f"/api/memory/entries/{memory['memory_id']}/revoke", headers={"Idempotency-Key": uuid4().hex},
+                    json={"base_version_id": active["version_id"], "reason": "Explicit smoke revocation exercise"})
+                after = call("POST", "/api/agent/tasks/development-01/execute", json={"base_version_id": revoked["version_id"]})
+                assert memory["memory_id"] not in [e["memory_id"] for e in after["retrieval"]["entries"]]
+                print(json.dumps({"before_revoke_execution": before["execution_id"], "before_action": before["execution"]["attempt"],
+                    "after_revoke_execution": after["execution_id"], "after_action": after["execution"]["attempt"],
+                    "memory_excluded_after_revoke": True}, indent=2))
         else:
             print("Eligible revision retained for explicit reviewer approval; active memory was not changed.")
 

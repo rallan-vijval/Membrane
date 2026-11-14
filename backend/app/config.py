@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,8 +13,14 @@ class Settings(BaseSettings):
     mongodb_db: str = "membrane"
     workspace_id: str = "membrane-demo-v1"
     openai_api_key: SecretStr = SecretStr("")
-    agent_model: str = ""
-    vision_model: str = ""
+    deepseek_api_key: SecretStr = SecretStr("")
+    llm_provider: Literal["openai", "deepseek"] = "deepseek"
+    vision_provider: Literal["openai", "deepseek"] = "deepseek"
+    deepseek_base_url: str = "https://api.deepseek.com"
+    agent_model: str = "deepseek-flash"
+    vision_model: str = "deepseek-flash"
+    embedding_provider: Literal["openai", "voyage"] = "openai"
+    voyage_api_key: SecretStr = SecretStr("")
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = Field(default=1536, ge=1, le=4096)
     model_timeout_seconds: int = Field(default=45, ge=1, le=120)
@@ -32,3 +39,14 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str = ""
     max_tts_characters_per_request: int = Field(default=2000, ge=1, le=10000)
     max_tts_characters_total: int = Field(default=20000, ge=1)
+    governed_memory_enabled: bool = False
+    langsmith_tracing: bool = False
+    langsmith_api_key: SecretStr = SecretStr("")
+
+    @property
+    def fixture_collection(self):
+        return "task_fixtures_v2" if self.governed_memory_enabled else "task_fixtures"
+
+    @property
+    def fixture_index(self):
+        return "fixture_semantic_v2" if self.governed_memory_enabled else "fixture_semantic_v1"
