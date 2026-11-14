@@ -137,3 +137,101 @@ def test_extract_email_keeps_text_authoritative_and_drops_inexact_quote(env):
     data, provenance = provider.extract_email("the real email")
     assert data["extracted_text"] == "the real email" and data["quotation"] == ""
     assert provenance["prompt_version"] == "extract-email-v1"
+
+
+# ---- App-password (IMAP) client: imaplib is replaced by an explicit in-test connection. ----
+
+RAW = {b"11": (b"9001", b"7001", b"Subject: Refund exception\r\nFrom: Supervisor <sup@example.test>\r\nDate: Sat, 14 Nov 2026 10:00:00 -0500\r\n"
+                                 b"Content-Type: text/plain; charset=utf-8\r\n\r\n" + BODY.encode() + b"\r\n"),
+       b"12": (b"9002", b"7001", b"Subject: Re: Refund exception\r\nFrom: Agent <agent@example.test>\r\nDate: Sat, 14 Nov 2026 11:00:00 -0500\r\n"
+                                 b"Content-Type: text/html; charset=utf-8\r\n\r\n<p>Thanks,<br>noted.</p>\r\n")}
+
+
+class FakeImap:
+    log = []
+
+    def __init__(self, password="abcdefghijklmnop"):
+        self.password, self.literal = password, None
+
+    def login(self, user, password):
+        import imaplib
+        self.log.append(("login", user))
+        if password != self.password:
+            raise imaplib.IMAP4.error("AUTHENTICATIONFAILED")
+        return "OK", [b"ok"]
+
+    def list(self):
+        return "OK", [b'(\\HasNoChildren) "/" "INBOX"', b'(\\HasNoChildren \\All) "/" "[Gmail]/All Mail"']
+
+    def select(self, folder, readonly=False):
+        self.log.append(("select", folder, readonly))
+        return "OK", [b"2"]
+
+    def uid(self, command, *args):
+        literal, self.literal = self.literal, None
+        self.log.append((command, args, literal))
+        if command == "SEARCH":
+            if args[0] == "X-GM-MSGID":
+                return "OK", [b" ".join(u for u, r in RAW.items() if r[0].decode() == args[1])]
+            if args[0] == "X-GM-THRID":
+                return "OK", [b" ".join(u for u, r in RAW.items() if r[1].decode() == args[1])]
+            return "OK", [b"11 12"]
+        out = []
+        for uid in args[0].encode().split(b","):
+            mid, tid, raw = RAW[uid]
+            payload = raw.split(b"\r\n\r\n")[0] + b"\r\n\r\n" if "HEADER" in args[1] else raw
+            out += [(b"1 (X-GM-THRID " + tid + b" X-GM-MSGID " + mid + b" UID " + uid + b" BODY[] {%d}" % len(payload), payload), b")"]
+        return "OK", out
+
+    def logout(self):
+        self.log.append(("logout",))
+
+
+@pytest.fixture
+def imap(env):
+    from backend.app.integrations.gmail_imap import GmailImap
+    cfg, store, provider, *_ = env
+    FakeImap.log = []
+    cfg = cfg.model_copy(update={"gmail_enabled": True, "gmail_address": "reviewer@example.test",
+        "gmail_app_password": Settings(_env_file=None, gmail_app_password="abcd efgh ijkl mnop").gmail_app_password})
+    provider.extract_email = lambda text: ({"extracted_text": text, "quotation": "", "proposed_text": "p",
+        "proposed_scope": {"kind": "preference", "order_id": None, "customer_id": None, "exception_id": None}}, {"model": "TEST ONLY"})
+    return TestClient(create_app(cfg, store, provider, gmail=GmailImap(cfg, FakeImap))), cfg
+
+
+def test_imap_search_is_read_only_headers_only_and_newest_first(imap):
+    api, _ = imap
+    assert api.get("/api/gmail/status").json()["account"] == "reviewer@example.test"
+    items = api.get("/api/gmail/messages", params={"q": "refund café"}).json()["items"]
+    assert [(i["message_id"], i["thread_id"], i["subject"]) for i in items] == [("9002", "7001", "Re: Refund exception"), ("9001", "7001", "Refund exception")]
+    selects = [e for e in FakeImap.log if e[0] == "select"]
+    assert selects and all(e == ("select", '"[Gmail]/All Mail"', True) for e in selects)
+    search = next(e for e in FakeImap.log if e[0] == "SEARCH")
+    assert search[1] == ("CHARSET", "UTF-8", "X-GM-RAW") and search[2] == "refund café".encode()
+    fetches = [e for e in FakeImap.log if e[0] == "FETCH"]
+    assert fetches and all("PEEK" in e[1][1] and "HEADER.FIELDS" in e[1][1] for e in fetches)
+    assert not any(e[0] in ("STORE", "COPY", "EXPUNGE", "APPEND") for e in FakeImap.log)
+
+
+def test_imap_import_message_and_thread(imap):
+    api, _ = imap
+    one = api.post("/api/gmail/messages/9001/import")
+    assert one.status_code == 201 and BODY in one.json()["extracted_text"]
+    assert one.json()["provenance"]["message_ids"] == ["9001"] and "abcd" not in one.text
+    thread = api.post("/api/gmail/threads/7001/import").json()
+    assert thread["provenance"]["message_ids"] == ["9001", "9002"] and "Thanks,\nnoted." in thread["extracted_text"]
+    assert all("BODY.PEEK[]" in e[1][1] for e in FakeImap.log if e[0] == "FETCH")
+    assert api.post("/api/gmail/messages/9999/import").status_code == 404
+    assert api.post("/api/gmail/messages/abc/import").status_code == 404
+    assert not any(e[0] == "SEARCH" and "abc" in e[1] for e in FakeImap.log)
+
+
+def test_imap_wrong_password_and_factory(imap, env):
+    from backend.app.integrations.gmail import Gmail, make_gmail
+    from backend.app.integrations.gmail_imap import GmailImap
+    _, cfg = imap
+    bad = GmailImap(cfg, lambda: FakeImap("different"))
+    with pytest.raises(Exception) as caught:
+        bad.account()
+    assert caught.value.code == "gmail_unavailable" and "abcd" not in caught.value.message
+    assert isinstance(make_gmail(cfg), GmailImap) and isinstance(make_gmail(env[0]), Gmail)

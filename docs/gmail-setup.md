@@ -2,7 +2,7 @@
 
 Membrane can take an email (or a whole thread) from Gmail as a source. It is treated exactly like an
 uploaded screenshot: untrusted, staged as a candidate, tested against the paired suite, and only
-activated after review. Membrane does not sync a mailbox, and cannot send, delete or modify mail.
+activated after review. Membrane does not sync a mailbox and never sends, deletes or modifies mail.
 
 ## What it reads
 
@@ -12,20 +12,36 @@ activated after review. Membrane does not sync a mailbox, and cannot send, delet
 - The Gmail account, message IDs and thread ID are recorded in the source's `provenance`.
 - Long mail is cut at `GMAIL_MAX_EMAIL_CHARS` (default 12000) with a visible marker.
 
-## One-time setup (about five minutes)
+## Setup A: app password (no Google Cloud project)
+
+1. Turn on 2-Step Verification for the Gmail account, then create an app password in the Google
+   Account security settings (search for "App passwords"). Work/school and Advanced Protection
+   accounts may not allow this.
+2. Put these in `.env` (never commit them, never paste them in chat):
+   ```
+   GMAIL_ENABLED=true
+   GMAIL_ADDRESS=you@gmail.com
+   GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+   ```
+3. Restart the backend. In the app open **Or pick an email from Gmail**; it shows the connected address.
+
+An app password is **not** read-only at Google's side: it can do anything IMAP can. Membrane limits
+itself in code: the mailbox is opened read-only, bodies are fetched with `BODY.PEEK` (mail is not
+marked as read), and nothing is written, moved or deleted. For a demo, a separate Gmail account
+with synthetic emails is the safest choice. Revoke the app password in the same settings page when done.
+Search results have no preview snippet in this mode.
+
+## Setup B: OAuth read-only grant (needs Google Cloud Console)
+
+Used when no app password is set. Google itself enforces read-only
+(`https://www.googleapis.com/auth/gmail.readonly`).
 
 1. In Google Cloud Console, enable the **Gmail API** and create an OAuth client of type
    **Desktop app**. Add your Gmail address as a test user on the consent screen.
-2. Put the client in `.env` (never commit it):
-   ```
-   GMAIL_CLIENT_ID=...
-   GMAIL_CLIENT_SECRET=...
-   ```
-3. Run `python -m scripts.gmail_authorize` and approve the read-only request in the browser.
-   The script writes `GMAIL_REFRESH_TOKEN` and `GMAIL_ENABLED=true` to `.env`; it never prints the token.
-4. Restart the backend. In the app open **Or pick an email from Gmail**; it shows the connected address.
-
-The only scope requested is `https://www.googleapis.com/auth/gmail.readonly`.
+2. Put `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` in `.env`.
+3. Run `python -m scripts.gmail_authorize` and approve the request in the browser. The script writes
+   `GMAIL_REFRESH_TOKEN` and `GMAIL_ENABLED=true` to `.env`; it never prints the token.
+4. Restart the backend.
 
 ## API
 
@@ -42,5 +58,5 @@ that is not an exact substring of the email is dropped.
 
 ## Verification status
 
-Unit and browser tests replace Google with an in-test transport. A live Gmail request has not been
-run yet; it needs the OAuth client above.
+Unit and browser tests replace Google (HTTP and IMAP) with in-test stand-ins. A live Gmail request has not been
+run yet; it needs credentials from Setup A or B.

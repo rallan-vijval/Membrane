@@ -77,6 +77,22 @@ def parse(message):
             "date": headers.get("date", ""), "body": _clean(text), "attachments": attachments}
 
 
+def parse_rfc822(raw, message_id, thread_id):
+    """One raw RFC 822 message (as IMAP returns it) -> the same shape as `parse`."""
+    from email import message_from_bytes, policy
+    mail = message_from_bytes(raw, policy=policy.default)
+    part = mail.get_body(preferencelist=("plain",))
+    if part is not None:
+        text = part.get_content()
+    else:
+        part, parser = mail.get_body(preferencelist=("html",)), _Text()
+        parser.feed(part.get_content() if part is not None else "")
+        text = "".join(parser.parts)
+    return {"message_id": message_id, "thread_id": thread_id, "subject": str(mail.get("Subject", "")),
+            "sender": str(mail.get("From", "")), "date": str(mail.get("Date", "")), "body": _clean(text),
+            "attachments": [a.get_filename() for a in mail.iter_attachments() if a.get_filename()]}
+
+
 def render_text(emails, limit):
     """The exact text given to extraction and shown to the reviewer. Attachments are named, not read."""
     blocks = []

@@ -26,7 +26,7 @@ export function GmailPanel({ disabled, onImport }: { disabled: boolean; onImport
       <summary>Or pick an email from Gmail</summary>
       {status?.status === 'ready' ? (
         <>
-          <p className="meta">Connected read-only to {status.account}. Only the email you import is read.</p>
+          <p className="meta">Connected to {status.account}; Membrane only reads. Only the email you import is read.</p>
           <form className="gmail-search" onSubmit={(e) => { e.preventDefault(); void search(); }}>
             <label className="field">
               <span>Search Gmail</span>
@@ -41,7 +41,7 @@ export function GmailPanel({ disabled, onImport }: { disabled: boolean; onImport
                 <li key={m.message_id}>
                   <div className="gmail-subject">{m.subject || '(no subject)'}</div>
                   <div className="meta">{m.sender} · {m.date}</div>
-                  <div className="gmail-snippet">{m.snippet}</div>
+                  {m.snippet && <div className="gmail-snippet">{m.snippet}</div>}
                   <div className="actions">
                     <button type="button" disabled={disabled} onClick={() => onImport('message', m.message_id)}>Import email</button>
                     <button type="button" className="secondary" disabled={disabled} onClick={() => onImport('thread', m.thread_id)}>Import whole thread</button>

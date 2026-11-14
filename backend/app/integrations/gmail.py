@@ -9,6 +9,7 @@ from threading import Lock
 import httpx
 
 from ..common import Problem
+from ..email_source import parse
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
@@ -81,7 +82,15 @@ class Gmail:
         return items
 
     def message(self, message_id):
-        return self._get(f"messages/{message_id}", {"format": "full"})
+        return parse(self._get(f"messages/{message_id}", {"format": "full"}))
 
     def thread(self, thread_id):
-        return self._get(f"threads/{thread_id}", {"format": "full"}).get("messages", [])
+        return [parse(m) for m in self._get(f"threads/{thread_id}", {"format": "full"}).get("messages", [])[:20]]
+
+
+def make_gmail(settings):
+    """App password (IMAP) when one is set; otherwise the OAuth read-only client."""
+    if settings.gmail_address and settings.gmail_app_password.get_secret_value():
+        from .gmail_imap import GmailImap
+        return GmailImap(settings)
+    return Gmail(settings)

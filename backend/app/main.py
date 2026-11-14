@@ -17,8 +17,7 @@ from .models import (ApproveIn, Audio, AudioIn, Candidate, CandidateIn, Candidat
                      Health, History, QuarantineIn, ReviseIn, Run, RunAccepted, Source, Version,
                      MemoryEntries, RevokeIn, RevokeResult, TaskOptions, ExecuteActiveIn, ActiveExecution,
                      GmailMessages, GmailStatus)
-from .email_source import parse
-from .integrations.gmail import Gmail
+from .integrations.gmail import make_gmail
 from .provider import Provider
 from .runner import Worker
 from .service import Service
@@ -32,7 +31,7 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
     service = Service(store, provider or Provider(cfg), embeddings, tracer)
     worker = Worker(service)
     voice = Voice(service)
-    gmail = gmail or Gmail(cfg)
+    gmail = gmail or make_gmail(cfg)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -129,7 +128,7 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
         gmail_health = {"status": "disabled", "reason": "Optional Gmail import is disabled"}
         if cfg.gmail_enabled:
             gmail_health = ({"status": "degraded", "reason": "Gmail credentials configured; read-only access unverified"} if gmail.configured()
-                            else {"status": "unavailable", "reason": "Set the GMAIL_* credentials; run scripts/gmail_authorize.py"})
+                            else {"status": "unavailable", "reason": "Set GMAIL_ADDRESS and GMAIL_APP_PASSWORD (see docs/gmail-setup.md)"})
         return {"database": database, "model": model, "search": search, "voice": voice_health, "workspace_id": cfg.workspace_id, "gmail": gmail_health,
                 "vision": vision_health, "embeddings": embedding_health, "memory_search": memory_search, "tracing": tracing_health}
 
@@ -167,14 +166,14 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
 
     @app.post("/api/gmail/messages/{message_id}/import", response_model=Source, status_code=201)
     def gmail_import_message(message_id: GmailId):
-        return service.email_source([parse(gmail.message(message_id))], gmail.account(), "message")
+        return service.email_source([gmail.message(message_id)], gmail.account(), "message")
 
     @app.post("/api/gmail/threads/{thread_id}/import", response_model=Source, status_code=201)
     def gmail_import_thread(thread_id: GmailId):
         messages = gmail.thread(thread_id)
         if not messages:
             raise Problem("not_found", "Gmail thread has no messages", 404)
-        return service.email_source([parse(m) for m in messages[:20]], gmail.account(), "thread")
+        return service.email_source(messages, gmail.account(), "thread")
 
     def asset(collection, key, value, media):
         doc = store.get(collection, key, value)

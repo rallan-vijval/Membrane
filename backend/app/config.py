@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     langsmith_tracing: bool = False
     langsmith_api_key: SecretStr = SecretStr("")
     gmail_enabled: bool = False
+    gmail_address: str = ""
+    gmail_app_password: SecretStr = SecretStr("")
     gmail_client_id: str = ""
     gmail_client_secret: SecretStr = SecretStr("")
     gmail_refresh_token: SecretStr = SecretStr("")

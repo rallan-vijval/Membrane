@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 test('an email picked from Gmail becomes an untrusted source that can be staged', async ({ page }) => {
   await page.goto('/?synthetic=1');
   await page.getByText('Or pick an email from Gmail').click();
-  await expect(page.getByText('Connected read-only to synthetic-inbox@example.test')).toBeVisible();
+  await expect(page.getByText('Connected to synthetic-inbox@example.test')).toBeVisible();
   await page.getByLabel('Search Gmail').fill('refund');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByText('Refund exception for order 4821')).toBeVisible();

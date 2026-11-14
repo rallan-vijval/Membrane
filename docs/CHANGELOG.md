@@ -10,7 +10,8 @@ Branch `feat/gmail-source-integration`, from main `51b5583`. Main is unchanged.
 - Additive API: `GET /api/gmail/status`, `GET /api/gmail/messages`, `POST /api/gmail/messages/{id}/import`, `POST /api/gmail/threads/{id}/import`; `Health.gmail`. `Source` is unchanged: an email is a source with `mime_type` `message/rfc822`, a typeset PNG preview and Gmail IDs in `provenance`. `contracts/openapi.yaml` and `frontend/src/api/generated.ts` regenerated (additions only).
 - Shared files touched with small additive edits: `main.py`, `service.py`, `provider.py` (`extract_email`), `models.py`, `config.py`, `components.tsx` (one prop + picker), `App.tsx`, `api/{types,http,synthetic,normalize}.ts`, `styles.css`, `.env.example`.
 - Verified on Linux/Python 3.13: 102 backend tests passed (7 new), 2 live skips; 16 browser tests passed (1 new); production build passed. The contract test fails there only because Python 3.13 names HTTP 422 "Unprocessable Content"; that was already the case on main, and the committed contract keeps main's wording, so rerun it on the team's Python. Google is replaced by a test transport; **no live Gmail request has been made**.
-- Needed before live use: a Google OAuth Desktop client and `python -m scripts.gmail_authorize` (see `docs/gmail-setup.md`). Off by default (`GMAIL_ENABLED=false`).
+- Added an app-password route that needs no Google Cloud project: `backend/app/integrations/gmail_imap.py` (IMAP, mailbox opened read-only, `BODY.PEEK` only), selected automatically when `GMAIL_ADDRESS` and `GMAIL_APP_PASSWORD` are set. Same API and UI. 105 backend tests pass with it (3 more new); no live IMAP login has been made.
+- Needed before live use: either an app password, or a Google OAuth Desktop client plus `python -m scripts.gmail_authorize` (see `docs/gmail-setup.md`). Off by default (`GMAIL_ENABLED=false`).
 
 ## 2026-11-14 — Next-phase planning only
 

@@ -255,5 +255,6 @@ button:hover:not(:disabled) { background: #245155; }
 .gmail-search .field { flex: 1; margin: 0; }
 .gmail-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; max-height: 320px; overflow-y: auto; }
 .gmail-list li { border: 1px solid #e3e7f0; border-radius: 8px; padding: 8px 10px; }
+.gmail-list .actions { margin-top: 6px; }
 .gmail-subject { font-weight: 600; }
 .gmail-snippet { font-size: 14px; color: var(--ink-soft); margin: 4px 0 6px; overflow-wrap: anywhere; }
