@@ -20,6 +20,7 @@ import {
 } from './api';
 import { RetrievalEvidence } from './governed';
 import { captureFrame, prepare } from './intake';
+import { ExperimentSummary } from './workflow';
 import { attemptDiff, describeError } from './util';
 
 // ----------------------------------------------------------------------------- small pieces
@@ -393,6 +394,7 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
     <section className="panel wide" aria-labelledby="run-h">
       <h2 id="run-h">2. Behavior preview</h2>
       <p className="hint">The same frozen tasks run with current memory (A) and with the candidate added (B). Compare what the agent tried to do.</p>
+      <ExperimentSummary run={run} />
       <div className="actions">
         <button type="button" disabled={disabled || !canRun} onClick={onRun}>
           {run ? 'Run test again' : 'Run behavior test'}

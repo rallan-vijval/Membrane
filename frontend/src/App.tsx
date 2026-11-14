@@ -14,6 +14,7 @@ import {
 import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
 import { ActiveTaskPanel, MemoryPanel } from './governed';
 import { describeError } from './util';
+import { WorkflowGuide } from './workflow';
 
 const POLL_MS = 2000;
 
@@ -213,6 +214,7 @@ export function App() {
         </div>
       )}
       <Header health={health} active={active} />
+      <WorkflowGuide source={source} candidate={candidate} run={run} />
       {error && (
         <div className="error" role="alert">
           <span>{error}</span>
@@ -232,6 +234,7 @@ export function App() {
         <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
         <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
       </main>
+      <div className="live-divider"><span>AFTER THE CHECKPOINT</span><h2>Memory in use</h2><p>Inspect what is active, or try a single request. These live trials do not count as admission evidence.</p></div>
       <div className="governed">
         <MemoryPanel memory={memory} problem={memoryProblem} disabled={busy !== null} onRevoke={onRevoke} onRefresh={() => void refreshShared()} />
         <ActiveTaskPanel versionId={memory?.version_id ?? active?.version_id ?? null} disabled={busy !== null} onStale={() => void refreshShared()} />

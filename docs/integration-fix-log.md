@@ -39,3 +39,7 @@ Initialized the v2 workspace and both search indexes. Corrected bounded Atlas co
 ## PDF upload fix
 
 Vite's dynamic-import helper added ?import to the public PDF.js module URL and tried to transform the public asset. Resolve the module to a fully qualified same-origin URL before importing it; Vite then leaves the public module untouched. The worker URL and lazy loading remain intact. Added the synthetic one-page PDF fixture and a browser regression exercising real PDF.js and its worker. No overlay suppression. Production TypeScript/Vite build passed; all 15 browser tests passed against the running local Vite/FastAPI servers using a temporary configuration that did not start duplicate servers. API review fixtures in browser tests remain synthetic.
+
+## Visual review refresh
+
+Added a state-driven five-stage journey and next-step guidance, a distinct A/B experiment boundary, and case-outcome counts separating new violations, baseline violations, inconclusive evidence, safe changes and unchanged-safe cases. Active-memory exploration is visually separated from admission testing. Updated typography, spacing, teal/paper palette and responsive layouts. Outcomes remain derived from backend classifications and approval authority is unchanged. Production build and all 15 browser tests passed against running local servers; desktop and mobile screenshots inspected. Future demo proposals are recorded separately in demo-improvements.md.
