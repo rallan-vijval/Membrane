@@ -92,12 +92,11 @@ export function App() {
     const tick = async () => {
       try {
         const next = await api.getRun(runId);
+        // On the final poll, read the candidate first: setting a terminal run ends this effect.
+        const c = TERMINAL_RUN.has(next.status) ? await api.getCandidate(next.candidate_id) : null;
         if (stopped) return;
+        if (c) setCandidate(c);
         setRun(next);
-        if (TERMINAL_RUN.has(next.status)) {
-          const c = await api.getCandidate(next.candidate_id);
-          if (!stopped) setCandidate(c);
-        }
       } catch (err) {
         if (!stopped) fail(err);
       }
