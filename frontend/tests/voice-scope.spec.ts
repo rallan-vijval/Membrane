@@ -105,6 +105,7 @@ test('scope experiment polls and reloads evidence without unlocking approval or 
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.locator('.advanced-tools > summary').click();
   await page.getByText('Try harder cases', { exact: true }).click();
   await page.getByRole('button', { name: 'Test nearby cases', exact: true }).click();
   await expect(page.getByText('Exploratory experiment: completed', { exact: false })).toBeVisible({ timeout: 10000 });

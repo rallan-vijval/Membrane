@@ -93,7 +93,7 @@ async function stage(page: Page, minutes?: string) {
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('All VIP customers can keep refunded items.');
   if (!await page.locator('.source-options').evaluate(el => (el as HTMLDetailsElement).open)) await page.locator('.source-options > summary').click();
   await page.getByRole('radio', { name: 'All orders', exact: true }).check();
-  if (minutes) await page.getByLabel('Lifetime after approval (minutes)').fill(minutes);
+  if (minutes) { await page.locator('.custom-duration > summary').click(); await page.getByLabel('Lifetime after approval (minutes)').fill(minutes); }
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
 }
 
@@ -109,10 +109,12 @@ test('lifetime is sent as ttl_seconds and an order scope needs its customer', as
   const stageButton = page.getByRole('button', { name: 'Save for testing', exact: true });
   await expect(stageButton).toBeDisabled();
   await page.getByLabel('Customer ID', { exact: true }).fill('customer-4821');
+  await page.locator('.custom-duration > summary').click();
   await page.getByLabel('Lifetime after approval (minutes)').fill('0');
   await expect(stageButton).toBeDisabled();
   await page.getByLabel('Lifetime after approval (minutes)').fill('15');
   await stageButton.click();
+  await page.locator('.memory-editor > summary').click();
   await page.getByText('Source and version details', { exact: true }).click();
   await expect(page.getByText('15 min after approval')).toBeVisible();
   const created = calls.find((c) => c.method === 'POST' && c.path === '/api/candidates')!.body as { ttl_seconds: number; scope: { customer_id: string } };

@@ -68,7 +68,7 @@ export function Header({ health, active, compact = false }: { health: Health | n
     <header className="header">
       <div>
         <h1>Membrane</h1>
-        <p>See what a new memory will make your agent do, before it does it.</p>
+        <p>Test memory. Protect your agent.</p>
       </div>
       <details className={`system-settings${compact ? " system-settings-compact" : ""}`}><summary>Settings</summary><div className="header-right">
         <div className="active-version">
@@ -178,8 +178,9 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
 
   return (
     <section className="panel" aria-labelledby="source-h">
-      <h2 id="source-h">1. What should the AI remember?</h2>
+      <h2 id="source-h">Add a memory</h2>
 
+      <details className="replace-source" open={!source || undefined}><summary hidden={!source}>Replace source</summary>
       <VoiceSourceIntake onSourceReady={onAudioSource} disabled={disabled} />
       {video ? (
         <div className="frame-picker">
@@ -195,7 +196,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
              onDragLeave={() => setOver(false)} onDrop={onDrop}>
           <p className="dropzone-title">{reading ? 'Reading the file…' : 'Drop a file here'}</p>
           <label className="field">
-            <span>Source file (image, PDF, text or video; synthetic data only)</span>
+            <span className="sr-only">Source file (image, PDF, text or video; synthetic data only)</span>
             <input
               type="file"
               accept="image/*,video/*,application/pdf,text/*,.md,.csv,.json,.log,.eml"
@@ -210,6 +211,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
       )}
       {intakeProblem && <p className="intake-problem" role="status">{intakeProblem}</p>}
 
+      </details>
       {source ? (
         <div className="source">
           {source.audio_url && <audio controls src={source.audio_url} aria-label="Reviewed voice source" />}
@@ -232,7 +234,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
           </div></details>
         </div>
       ) : (
-        <p className="empty">Add a source to extract a proposed memory. A PDF sends page 1; a video sends the one frame you pick.</p>
+        <p className="empty">Image, PDF, text or video · synthetic data only</p>
       )}
 
       <div hidden={!source}>
@@ -264,6 +266,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
       </div>
 
       <fieldset className="lifetime-presets"><legend>Expires after approval</legend><div className="preset-row">{[[60, '1 hour'], [240, '4 hours'], [1440, '1 day']].map(([value, label]) => <button key={value} type="button" className="secondary" aria-pressed={Number(ttlMinutes) === value} disabled={disabled || !source} onClick={() => setTtlMinutes(String(value))}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>{label}</button>)}</div></fieldset>
+      <details className="custom-duration"><summary>Custom duration</summary>
       <label className="field">
         <span>Lifetime after approval (minutes)</span>
         <input type="number" inputMode="numeric" min={TTL_MIN_SECONDS / 60} max={TTL_MAX_SECONDS / 60} step={1} value={ttlMinutes}
@@ -273,7 +276,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
         {ttlValid ? 'The memory expires this long after it is approved, then stops being used.' : 'Enter a whole number of minutes from 1 to 1440.'}
         {kind === 'order' && !scopeValid && ' An order scope needs both the order ID and the customer ID.'}
       </p>
-
+      </details>
         </div>
       </details>
       <div className="actions">
@@ -521,6 +524,7 @@ function CaseRows({ c, cls, expanded, runId, pickedBy, voiceReady, onToggle, ret
 // ----------------------------------------------------------------------------- right: decision
 
 interface DecisionPanelProps {
+  compact?: boolean;
   candidate: Candidate | null;
   run: Run | null;
   disabled: boolean;
@@ -528,13 +532,20 @@ interface DecisionPanelProps {
   onQuarantine: (reason: string) => void;
 }
 
-export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantine }: DecisionPanelProps) {
+export function DecisionPanel({ compact = false, candidate, run, disabled, onApprove, onQuarantine }: DecisionPanelProps) {
   const [reason, setReason] = useState('');
   // Approval is offered only when the BACKEND says both the candidate and this run are eligible.
   const eligible = candidate?.state === 'eligible' && run?.status === 'completed' && run.admission === 'eligible'
     && run.candidate_id === candidate.id && candidate.latest_run_id === run.id;
   const decided = candidate?.state === 'approved' || candidate?.state === 'quarantined';
 
+  if (compact) return <div className="compact-decision">
+    {eligible && <button type="button" disabled={disabled} onClick={onApprove}>Approve for use</button>}
+    {candidate && !decided && <details className="manual-reject"><summary>Reject instead</summary>
+      <label className="field"><span>Reason for rejecting</span><input value={reason} onChange={e => setReason(e.target.value)} disabled={disabled}/></label>
+      <button type="button" className="danger" disabled={disabled || !reason.trim()} onClick={() => onQuarantine(reason.trim())}>Reject memory</button>
+    </details>}
+  </div>;
   return (
     <section className="panel" aria-labelledby="decision-h">
       <h2 id="decision-h">4. Put this memory into use?</h2>

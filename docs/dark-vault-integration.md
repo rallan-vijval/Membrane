@@ -24,3 +24,12 @@ ElevenLabs upload/recording and explicit transcript review, DeepSeek proposal ex
 Production TypeScript/Vite build passes. The 25-test Chrome browser suite covers PDF intake, voice review/cancellation, revision/approval, conflict handling, expiry/revocation, dashboard drilldown, exploration isolation, visual option payloads and security verdict state. Desktop and 390px mobile screenshots were inspected; the custom options do not overflow.
 
 Browser APIs are synthetic fixtures except the existing local backend health smoke check. This is a UI integration check, not a fresh paid-provider end-to-end run.
+
+## Final simplification
+
+- The simple page now centers the lock and next action. Removed the four-step text strip, repeated verdict, case tallies and before/after panel from this page.
+- After saving, the editor collapses to Edit memory. Source replacement and custom duration are secondary disclosures. Approval appears only for an eligible exact revision; manual rejection is a separate disclosure requiring a reason.
+- Dashboard keeps the existing two tabs and APIs. Its initial view is a security verdict, clickable nonzero outcome counts and the four-decision matrix. Symbols retain screen-reader labels and the shared legend.
+- Full evidence, scope experiments, quarantine and usage/history statistics are grouped under Evidence and tools. Saved evidence and experiment URLs open the necessary disclosures automatically.
+- The phone comparison grid fits all four decisions without sideways scrolling. Keyboard focus, selection and drilldown remain functional.
+- Design reference: https://www.nngroup.com/articles/progressive-disclosure/ (prioritize frequent decisions and disclose secondary controls).

@@ -14,8 +14,7 @@ import {
 import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
 import { ActiveTaskPanel, MemoryPanel } from './governed';
 import { describeError } from './util';
-import { UseProgress } from './SimpleUse';
-import { KeyPanel, ChangeHighlight } from './summary';
+import { KeyPanel } from './summary';
 import { Dashboard, type DashboardPanel } from './Dashboard';
 import { ScopeExperimentPanel } from './features/memory-lab/ScopeExperimentPanel';
 
@@ -51,6 +50,7 @@ export function App() {
   const [history, setHistory] = useState<History | null>(null);
   const [memory, setMemory] = useState<GovernedMemory | null>(null);
   const [memoryProblem, setMemoryProblem] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [source, setSource] = useState<Source | null>(null);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [run, setRun] = useState<Run | null>(null);
@@ -156,6 +156,8 @@ export function App() {
     }
   };
 
+  useEffect(() => { setEditOpen(false); }, [candidate?.id]);
+
   const onUpload = (file: File) =>
     act('Reading screenshot…', async () => {
       const s = await api.uploadSource(file);
@@ -253,12 +255,13 @@ export function App() {
       {error && <div className="error" role="alert"><span>{error}</span><button type="button" className="link" onClick={() => setError(null)}>Dismiss</button></div>}
       {busy && <div className="busy" role="status">{busy}</div>}
       <main className="use-shell" hidden={view !== 'use'} aria-label="Upload and test workspace">
-        <UseProgress source={source} candidate={candidate} run={run} />
-        <SourcePanel source={source} candidate={candidate} disabled={busy !== null || view !== 'use'} onUpload={onUpload}
+        <KeyPanel hasSource={!!source} candidate={candidate} run={run} inUse={memory && candidate ? (memory.items.some(m => m.candidate_id === candidate.id && m.availability === 'active') ? true : memory.truncated ? null : false) : null} disabled={busy !== null} onRun={onRun} onOpen={() => navigate('dashboard', 'evidence')} />
+        <details className="memory-editor" open={!candidate || editOpen} onToggle={e => setEditOpen(e.currentTarget.open)}>
+          <summary hidden={!candidate}><span>Edit memory</span><span className="editor-preview">{candidate?.text}</span></summary>
+        <SourcePanel source={source} candidate={candidate} disabled={busy !== null || view !== 'use' || (!!candidate && !editOpen)} onUpload={onUpload}
           onAudioSource={s => { setSource(s); setCandidate(null); setRun(null); }} onStage={onStage} onRevise={onRevise} />
-        <KeyPanel candidate={candidate} run={run} inUse={memory && candidate ? (memory.items.some(m => m.candidate_id === candidate.id && m.availability === 'active') ? true : memory.truncated ? null : false) : null} disabled={busy !== null} onRun={onRun} onOpen={() => navigate('dashboard', 'evidence')} />
-        <ChangeHighlight run={run} />
-        {run && runDone && <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />}
+        </details>
+        {run && runDone && <DecisionPanel compact candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />}
       </main>
       <Dashboard visible={view === 'dashboard'} panel={dashboardPanel} onPanel={panel => navigate('dashboard', panel)} candidate={candidate} run={run}
         history={history} memory={memory} health={health} onSelectCandidate={selectSaved} onUse={() => navigate('use')}

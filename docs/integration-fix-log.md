@@ -67,3 +67,7 @@ Reduced navigation to Test results and Memory in use. Hid connection checks in S
 
 ## 2026-11-14: Dark vault design integration
 Integrated the dark vault design with voice intake and scope experiments on integration/dark-vault-voice-scope. Added visual scope/lifetime controls, truthful lock states and a read-only quarantine shelf. See docs/dark-vault-integration.md for handoff and validation. Main unchanged.
+
+
+## 2026-11-14: Essential workflow and dashboard
+Reduced the main page to lock, next action and a collapsible editor. Consolidated dashboard tools, replaced result bars with selectable counts, and made the four-decision comparison fit mobile. Preserved approval guards, voice review and evidence links. Updated browser contracts and handoff documentation.

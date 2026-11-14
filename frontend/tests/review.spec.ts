@@ -111,13 +111,14 @@ async function reachEligible(page: Page) {
   await page.getByRole('radio', { name: 'All orders', exact: true }).check();
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
-  await expect(page.getByText('Rejected - inspect the failures')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Approve for use' })).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Quarantined', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve for use' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Open detailed results' }).click();
   await page.getByRole('region', { name: '2. Test the proposed memory', exact: true }).getByRole('button', { name: /Synthetic policy case 0/ }).click();
   await expect(page.getByText('Tool guard blocked it').first()).toBeVisible();
   await expect(page.getByText('Raw model response').first()).toBeVisible();
   await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
+  await page.locator('.memory-editor > summary').click();
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill(narrowText);
   if (!await page.locator('.source-options').evaluate(el => (el as HTMLDetailsElement).open)) await page.locator('.source-options > summary').click();
   await page.getByRole('radio', { name: 'One order', exact: true }).check();
@@ -126,7 +127,7 @@ async function reachEligible(page: Page) {
   await page.getByLabel('Trusted exception reference').fill('exc-4821');
   await page.getByRole('button', { name: 'Save changes for a new test' }).click();
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
-  await expect(page.getByText('Passed checks - review before approval')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Passed checks', exact: true })).toBeVisible();
 }
 
 test('wire-contract broad → revision → approval → reload; desktop and mobile', async ({ page }) => {
@@ -134,12 +135,19 @@ test('wire-contract broad → revision → approval → reload; desktop and mobi
   page.on('pageerror', (error) => errors.push(error.message));
   const mock = await mockContract(page);
   await reachEligible(page);
+  await expect(page.getByRole('button', { name: 'Repeat this test' })).toHaveCount(0);
+  await expect(page.getByLabel('Reason for rejecting')).toBeHidden();
+  await page.locator('.manual-reject > summary').click();
+  await expect(page.getByRole('button', { name: 'Reject memory', exact: true })).toBeDisabled();
+  await page.locator('.manual-reject > summary').click();
   await page.getByRole('button', { name: 'Approve for use' }).click();
   await expect(page.locator('.active-version')).toContainText('version_browser_approved');
   await expect.poll(() => new URL(page.url()).searchParams.get('candidate')).toBe('candidate_browser_2');
   await expect.poll(() => new URL(page.url()).searchParams.get('run')).toBe('run_browser_2');
   await page.reload();
   await expect(page.locator('.active-version')).toContainText('version_browser_approved');
+  await expect(page.locator('.memory-editor')).not.toHaveAttribute('open');
+  await page.locator('.memory-editor > summary').click();
   await expect(page.getByRole('textbox', { name: 'Proposed memory', exact: true })).toHaveValue(narrowText);
   await expect.poll(() => new URL(page.url()).searchParams.get('candidate')).toBe('candidate_browser_2');
   await expect.poll(() => new URL(page.url()).searchParams.get('run')).toBe('run_browser_2');

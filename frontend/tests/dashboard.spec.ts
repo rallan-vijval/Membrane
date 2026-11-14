@@ -52,6 +52,7 @@ test('simple entry hides detailed data; dashboard loads saved evidence and suppo
   await expect(page.getByText('Full test details', { exact: true }).locator('..')).toHaveJSProperty('open', false);
   await expect(page.getByText('Try harder cases', { exact: true }).locator('..')).toHaveJSProperty('open', false);
   await expect(page.locator('.usage-grid')).toBeHidden();
+  await page.locator('.advanced-tools > summary').click();
   await page.getByText('More statistics', { exact: true }).click();
   await expect(page.locator('.usage-grid')).toContainText('77');
   await expect(page.getByText('1 loaded · partial list, not a workspace total.', { exact: false })).toBeVisible();
@@ -62,6 +63,8 @@ test('simple entry hides detailed data; dashboard loads saved evidence and suppo
   await page.getByRole('button', { name: 'Show all requests' }).click();
   await expect(page.getByRole('button', { name: 'Request C - with - repetition 1: Pending', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Proposed memory', exact: true })).toHaveCount(0);
+  await page.locator('.memory-editor > summary').click();
   await expect(page.getByRole('textbox', { name: 'Proposed memory', exact: true })).toHaveValue('Dashboard fixture memory');
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'What changed?' })).toBeVisible();
@@ -72,7 +75,7 @@ test('simple entry hides detailed data; dashboard loads saved evidence and suppo
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('region', { name: 'Decision matrix', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
-  await expect.poll(() => page.locator('.matrix-scroll').evaluate(node => node.scrollLeft)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('.matrix-scroll').evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
   await page.locator('.matrix-scroll').evaluate(node => { node.scrollLeft = 0; });
   await page.screenshot({ path: '../artifacts/dashboard-mobile.png', fullPage: true });
   expect(calls.every(c => c.startsWith('GET '))).toBe(true);
@@ -81,6 +84,7 @@ test('simple entry hides detailed data; dashboard loads saved evidence and suppo
 test('missing usage is not represented as zero measured consumption', async ({ page }) => {
   await fixture(page, true);
   await page.goto('/?page=dashboard&candidate=candidate_dashboard&run=run_dashboard');
+  await page.locator('.advanced-tools > summary').click();
   await page.getByText('More statistics', { exact: true }).click();
   await expect(page.locator('.usage-grid')).toContainText('Not reported');
   await expect(page.locator('.usage-grid dd')).toHaveText(['Not reported', 'Not reported', 'Not reported']);
@@ -89,6 +93,7 @@ test('missing usage is not represented as zero measured consumption', async ({ p
 test('unavailable proposal statistics stay unavailable rather than becoming a fabricated zero', async ({ page }) => {
   await fixture(page, false, true);
   await page.goto('/?page=dashboard');
+  await page.locator('.advanced-tools > summary').click();
   await page.getByText('More statistics', { exact: true }).click();
   await expect(page.getByText('Memory statistics unavailable.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Not tested: 0', exact: true })).toHaveCount(0);
