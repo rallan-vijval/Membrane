@@ -53,6 +53,11 @@ python -m scripts.reset_demo                           # clean demo state
 uvicorn membrane.app:app --reload                      # open http://127.0.0.1:8000
 ```
 
+## Review UI (React)
+
+The three-column review screen lives in `frontend/`. Setup, synthetic mode and the demo runbook
+are in [frontend/README.md](frontend/README.md).
+
 ## Deploy
 
 The app is one web process. Any host that runs a Dockerfile or a Procfile works (Render, Railway, Fly).
