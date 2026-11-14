@@ -107,7 +107,8 @@ async function reachEligible(page: Page) {
   await page.goto('/');
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('All VIP customers can keep refunded items.');
-  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('global');
+  if (!await page.locator('.source-options').evaluate(el => (el as HTMLDetailsElement).open)) await page.locator('.source-options > summary').click();
+  await page.getByRole('radio', { name: 'All orders', exact: true }).check();
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
   await expect(page.getByText('Rejected - inspect the failures')).toBeVisible();
@@ -118,7 +119,8 @@ async function reachEligible(page: Page) {
   await expect(page.getByText('Raw model response').first()).toBeVisible();
   await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill(narrowText);
-  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('order');
+  if (!await page.locator('.source-options').evaluate(el => (el as HTMLDetailsElement).open)) await page.locator('.source-options > summary').click();
+  await page.getByRole('radio', { name: 'One order', exact: true }).check();
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
   await page.getByLabel('Customer ID', { exact: true }).fill('customer-4821');
   await page.getByLabel('Trusted exception reference').fill('exc-4821');

@@ -63,3 +63,7 @@ Split the default upload/record/review/test/decision flow from the dashboard. Ad
 ## Dashboard simplification
 
 Reduced navigation to Test results and Memory in use. Hid connection checks in Settings; grouped full evidence, nearby-case experiments and statistics into disclosures. Renamed proposal selector and withdrawal action; reduced technical text and hid version/origin metadata. Approval and provider behavior unchanged. See dashboard-simplification.md for the current UI handoff.
+
+
+## 2026-11-14: Dark vault design integration
+Integrated the dark vault design with voice intake and scope experiments on integration/dark-vault-voice-scope. Added visual scope/lifetime controls, truthful lock states and a read-only quarantine shelf. See docs/dark-vault-integration.md for handoff and validation. Main unchanged.

@@ -91,7 +91,8 @@ async function mock(page: Page, options: Options = {}) {
 async function stage(page: Page, minutes?: string) {
   await page.getByLabel(FILE_LABEL).setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('All VIP customers can keep refunded items.');
-  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('global');
+  if (!await page.locator('.source-options').evaluate(el => (el as HTMLDetailsElement).open)) await page.locator('.source-options > summary').click();
+  await page.getByRole('radio', { name: 'All orders', exact: true }).check();
   if (minutes) await page.getByLabel('Lifetime after approval (minutes)').fill(minutes);
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
 }
@@ -101,7 +102,8 @@ test('lifetime is sent as ttl_seconds and an order scope needs its customer', as
   await page.goto('/');
   await page.getByLabel(FILE_LABEL).setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('Order 4821 only.');
-  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('order');
+  if (!await page.locator('.source-options').evaluate(el => (el as HTMLDetailsElement).open)) await page.locator('.source-options > summary').click();
+  await page.getByRole('radio', { name: 'One order', exact: true }).check();
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
   await page.getByLabel('Customer ID', { exact: true }).fill(''); // the extraction may have proposed one
   const stageButton = page.getByRole('button', { name: 'Save for testing', exact: true });
@@ -210,4 +212,25 @@ test('a backend without the governed endpoints keeps the review flow and raises 
   await expect(page.locator('.synthetic-banner')).toHaveCount(0);
   await stage(page, '30');
   await expect(page.getByRole('button', { name: 'Test this memory', exact: true })).toBeEnabled();
+});
+
+test('visual expiry presets update the saved lifetime without granting approval', async ({ page }) => {
+  const calls = await mock(page);
+  await page.goto('/');
+  await page.getByLabel(FILE_LABEL).setInputFiles(screenshot);
+  await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('A narrow response preference.');
+  if (!await page.locator('.source-options').evaluate(el => (el as HTMLDetailsElement).open)) await page.locator('.source-options > summary').click();
+  await page.getByRole('radio', { name: 'Preference', exact: true }).check();
+  await page.getByRole('button', { name: '4 hours', exact: true }).click();
+  await expect(page.getByRole('button', { name: '4 hours', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('Lifetime after approval (minutes)')).toHaveValue('240');
+  await page.screenshot({ path: '../artifacts/vault-options-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: '../artifacts/vault-options-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
+  const body = calls.find(c => c.method === 'POST' && c.path === '/api/candidates')!.body as { ttl_seconds: number; scope: { kind: string } };
+  expect(body.ttl_seconds).toBe(14400);
+  expect(body.scope.kind).toBe('preference');
+  await expect(page.getByRole('button', { name: 'Approve for use' })).toHaveCount(0);
 });

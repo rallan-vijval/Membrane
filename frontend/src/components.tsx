@@ -1,3 +1,4 @@
+import { ScopeChoices } from './MemoryOptions';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import {
   api,
@@ -108,6 +109,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
   const [customerId, setCustomerId] = useState('');
   const [exceptionId, setExceptionId] = useState('');
   const [ttlMinutes, setTtlMinutes] = useState(String(TTL_DEFAULT_SECONDS / 60));
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [over, setOver] = useState(false);
   const [reading, setReading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -211,6 +213,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
       {source ? (
         <div className="source">
           {source.audio_url && <audio controls src={source.audio_url} aria-label="Reviewed voice source" />}
+          <details className="fold"><summary><span>Source evidence</span></summary><div className="fold-body">
           {source.image_url && <img src={source.image_url} alt="The source as sent to the backend" />}
           {note && <p className="conversion">{note}</p>}
           <div className="trust">
@@ -226,6 +229,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
               {source.provenance.extraction_model ?? 'n/a'}
             </p>
           </details>
+          </div></details>
         </div>
       ) : (
         <p className="empty">Add a source to extract a proposed memory. A PDF sends page 1; a video sends the one frame you pick.</p>
@@ -236,15 +240,11 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
         <span>Proposed memory</span>
         <textarea aria-label="Proposed memory" value={text} onChange={(e) => setText(e.target.value)} rows={3} disabled={disabled || !source || !editorReady} />
       </label>
-      <div className="row">
-        <label className="field">
-          <span>Scope</span>
-          <select aria-label="Scope" value={kind} onChange={(e) => setKind(e.target.value as Scope['kind'])} disabled={disabled || !source}>
-            <option value="global">Global</option>
-            <option value="order">One order</option>
-            <option value="preference">Preference</option>
-          </select>
-        </label>
+      <details className="fold source-options" open={optionsOpen || (!!source && (!scopeValid || !ttlValid))} onToggle={e => setOptionsOpen(e.currentTarget.open)}>
+        <summary><span>Customize scope and lifetime</span><span className="fold-value">{kind === 'global' ? 'All orders' : kind === 'order' ? 'One order' : 'Preference'} · {ttlMinutes} min</span></summary>
+        <div className="fold-body">
+        <ScopeChoices value={kind} onChange={setKind} disabled={disabled || !source} />
+        <div className="row">
         {kind === 'order' && (
           <>
             <label className="field">
@@ -263,6 +263,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
         )}
       </div>
 
+      <fieldset className="lifetime-presets"><legend>Expires after approval</legend><div className="preset-row">{[[60, '1 hour'], [240, '4 hours'], [1440, '1 day']].map(([value, label]) => <button key={value} type="button" className="secondary" aria-pressed={Number(ttlMinutes) === value} disabled={disabled || !source} onClick={() => setTtlMinutes(String(value))}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>{label}</button>)}</div></fieldset>
       <label className="field">
         <span>Lifetime after approval (minutes)</span>
         <input type="number" inputMode="numeric" min={TTL_MIN_SECONDS / 60} max={TTL_MAX_SECONDS / 60} step={1} value={ttlMinutes}
@@ -273,6 +274,8 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
         {kind === 'order' && !scopeValid && ' An order scope needs both the order ID and the customer ID.'}
       </p>
 
+        </div>
+      </details>
       <div className="actions">
         {!candidate && (
           <button type="button" disabled={disabled || !source || !valid} onClick={() => onStage(text.trim(), scope, minutes * 60)}>
@@ -329,7 +332,7 @@ function caseDiff(c: CaseResult) {
 }
 
 /** One line per side; if the two repetitions disagree, show both. */
-function sideSummary(c: CaseResult, side: Side): string {
+export function sideSummary(c: CaseResult, side: Side): string {
   const labels = c.executions.filter((e) => e.side === side).sort((a, b) => a.repetition - b.repetition).map(actionLabel);
   if (labels.length === 0) return 'pending';
   return new Set(labels).size === 1 ? labels[0] : labels.map((l, i) => `rep ${i + 1}: ${l}`).join(' / ');

@@ -13,9 +13,8 @@ export function WorkflowGuide({ source, candidate, run }: { source: Source | nul
     : source ? 'Review the extracted text, scope and lifetime, then save it for testing.'
     : 'Upload a note or PDF. We will extract a proposed memory for you to review.';
   return <section className="workflow-guide" aria-label="Review workflow">
-    <div className="workflow-intro"><div><p className="eyebrow">THE MEMORY CHECKPOINT</p><h2>Before it becomes a habit.</h2><p>See what a proposed memory changes before the live agent can use it.</p></div><span className="boundary-label">{approved ? '✓ Revision approved' : '◇ Proposed memory stays isolated'}</span></div>
     <ol className="journey">{steps.map((label, i) => <li key={label} className={i === stage ? 'journey-current' : i < stage ? 'journey-done' : ''} aria-current={i === stage ? 'step' : undefined}><span aria-hidden="true">{i < stage ? '✓' : String(i + 1).padStart(2, '0')}</span>{label}</li>)}</ol>
-    <p className="next-step" role="status"><strong>Next step</strong> {next}</p>
+    <p className="next-step" role="status"><strong>Next</strong> {next}<span className="boundary-label">{approved ? '✓ Approved' : '◇ Not in use yet'}</span></p>
   </section>;
 }
 
@@ -31,7 +30,6 @@ export function ExperimentSummary({ run }: { run: Run | null }) {
   ];
   return <div className="experiment-summary" aria-label="Recorded case outcomes">
     <div className="experiment-key"><span>A <small>Without the proposed memory</small></span><span className="experiment-boundary">MEMBRANE</span><span>B <small>With the proposed memory</small></span></div>
-    <div className="outcome-strip">{outcomes.map(o => <div className={`outcome outcome-${o.tone}`} key={o.label}><span aria-hidden="true">{o.symbol}</span><strong>{o.value}</strong><span>{o.label}</span></div>)}</div>
-    <p className="meta">Recorded cases only. Inconclusive means missing, invalid or unmet evidence; it is not proof of a new violation. Open a case below to inspect the actual actions and checks.</p>
+    <div className="outcome-strip">{outcomes.filter(o => o.value > 0).map(o => <div className={`outcome outcome-${o.tone}`} key={o.label}><span aria-hidden="true">{o.symbol}</span><strong>{o.value}</strong><span>{o.label}</span></div>)}</div>
   </div>;
 }

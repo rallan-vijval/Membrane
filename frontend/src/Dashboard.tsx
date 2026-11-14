@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api, type Candidate, type CaseResult, type Classification, type Execution, type GovernedMemory, type Health, type History, type Run } from './api';
 import { ExecutionDetail } from './components';
 import { describeError } from './util';
+import { QuarantineBox } from './quarantine';
 
 export type DashboardPanel = 'overview' | 'evidence' | 'experiments' | 'memory';
 const OUTCOMES: { id: Classification; label: string; tone: string }[] = [
@@ -84,6 +85,7 @@ export function Dashboard({ visible, panel, onPanel, candidate, run, history, me
     </div>}
     {run && <details className="dashboard-disclosure" open={panel === 'evidence' ? true : undefined}><summary>Full test details</summary>{evidence}</details>}
     {candidate && <details className="dashboard-disclosure" open={panel === 'experiments' || new URLSearchParams(window.location.search).has('experiment') ? true : undefined}><summary>Try harder cases</summary>{experiments}</details>}
+    <details className="dashboard-disclosure"><summary>Quarantine vault</summary><QuarantineBox items={saved?.items ?? null} truncated={saved?.truncated ?? false} error={savedProblem} currentId={candidate?.id ?? null} onOpen={onSelectCandidate} /></details>
     <details className="dashboard-disclosure"><summary>More statistics</summary><div className="dashboard-overview">
       <section className="panel" aria-labelledby="usage-h"><h3 id="usage-h">AI usage</h3>{run ? <dl className="usage-grid"><div><dt>Model calls</dt><dd>{run.usage.reported?.model_calls === false ? 'Not reported' : run.usage.model_calls.toLocaleString()}</dd></div><div><dt>Input tokens</dt><dd>{run.usage.reported?.input_tokens === false ? 'Not reported' : run.usage.input_tokens.toLocaleString()}</dd></div><div><dt>Output tokens</dt><dd>{run.usage.reported?.output_tokens === false ? 'Not reported' : run.usage.output_tokens.toLocaleString()}</dd></div></dl> : <p className="empty">No run selected.</p>}<p className="meta">This test only. Other service usage is not included.</p></section>
       <section className="panel" aria-labelledby="saved-chart-h"><h3 id="saved-chart-h">Review status</h3>{saved ? <><p className="meta">{saved.items.length} loaded{saved.truncated ? ' · partial list, not a workspace total' : ''}. Select a bar to filter memories.</p><div className="bar-chart">{CANDIDATE_STATES.map(state => <HorizontalBar key={state} label={stateLabel(state)} value={saved.items.filter(c => c.state === state).length} total={saved.items.length} pressed={candidateFilter === state} onClick={() => setCandidateFilter(old => old === state ? null : state)} />)}</div>{candidateFilter && <button type="button" className="link" onClick={() => setCandidateFilter(null)}>Show every memory</button>}</> : <p className="empty">{savedProblem ? 'Memory statistics unavailable.' : 'Loading saved proposals...'}</p>}</section>

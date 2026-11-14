@@ -14,9 +14,9 @@ import {
 import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
 import { ActiveTaskPanel, MemoryPanel } from './governed';
 import { describeError } from './util';
-import { UseProgress, QuickTest } from './SimpleUse';
+import { UseProgress } from './SimpleUse';
+import { KeyPanel, ChangeHighlight } from './summary';
 import { Dashboard, type DashboardPanel } from './Dashboard';
-import './workspace.css';
 import { ScopeExperimentPanel } from './features/memory-lab/ScopeExperimentPanel';
 
 const POLL_MS = 2000;
@@ -256,7 +256,8 @@ export function App() {
         <UseProgress source={source} candidate={candidate} run={run} />
         <SourcePanel source={source} candidate={candidate} disabled={busy !== null || view !== 'use'} onUpload={onUpload}
           onAudioSource={s => { setSource(s); setCandidate(null); setRun(null); }} onStage={onStage} onRevise={onRevise} />
-        <QuickTest candidate={candidate} run={run} disabled={busy !== null} onRun={onRun} onDetails={() => navigate('dashboard', 'evidence')} />
+        <KeyPanel candidate={candidate} run={run} inUse={memory && candidate ? (memory.items.some(m => m.candidate_id === candidate.id && m.availability === 'active') ? true : memory.truncated ? null : false) : null} disabled={busy !== null} onRun={onRun} onOpen={() => navigate('dashboard', 'evidence')} />
+        <ChangeHighlight run={run} />
         {run && runDone && <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />}
       </main>
       <Dashboard visible={view === 'dashboard'} panel={dashboardPanel} onPanel={panel => navigate('dashboard', panel)} candidate={candidate} run={run}
