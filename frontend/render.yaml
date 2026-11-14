@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: membrane-review-demo
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_SYNTHETIC
+        value: "1"
