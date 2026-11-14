@@ -2,6 +2,12 @@
 
 Read this first when joining the project. Dates use America/New_York. Append an entry for each handoff, contract change, integration fix, or merge; include branch, commit, verification, and any action needed by the other agent. Never include secrets or claim mock results are live.
 
+## 2026-11-14 — Next-phase planning only
+
+Created `feat/governed-memory-backend` from shared main checkpoint `3b456a4`. Added `docs/NEXT_PHASE_PLAN.md`, revised for **three independent agents**: A (our side) owns governed memory/core backend/Atlas; B owns lifecycle/retrieval UI, active-task results and existing speech UX; C owns isolated Voyage/OpenAI embedding adapters and optional LangSmith instrumentation. Explicit file ownership, per-agent progress files and separate HTTP/Python contract checkpoints avoid shared edits. Future integration order is C → A → B.
+
+No application code, dependency files, API schemas, credentials, cloud resources or main-branch content changed in this planning checkpoint. No agents were launched. The plan does not redeem credits or implement integrations. Teammates should create `feat/governed-memory-ui` and `feat/provider-integrations` from `3b456a4`, then read the plan from our planning branch. Do not copy another agent's future implementation into an owned area or edit shared files in parallel.
+
 ## 2026-11-14 — Both agents integrated and verified on main
 
 **Current state:** teammate readiness confirmed by the user. Backend `d5e4c73` merged in `5e58293`; frontend `f061fe8` merged in `25a804c`. There were no Git file conflicts. The commit containing this entry fixes the semantic API mismatches found during integration. The older pre-merge entry below is historical.
