@@ -36,17 +36,26 @@ test('simple entry hides detailed data; dashboard loads saved evidence and suppo
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Use a voice note instead' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Proposed memory', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Admission outcomes' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'What changed?' })).toHaveCount(0);
   expect(calls.some(c => c === 'GET /api/candidates')).toBe(false);
   await page.screenshot({ path: '../artifacts/use-empty-desktop.png', fullPage: true });
+  await expect(page.locator('.health')).toBeHidden();
+  await page.locator('.system-settings > summary').click();
+  await expect(page.locator('.health')).toBeVisible();
+  await page.locator('.system-settings > summary').click();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
-  await page.getByLabel('Saved proposal', { exact: true }).selectOption('candidate_dashboard');
-  await expect(page.getByRole('button', { name: 'New violations: 1', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Inconclusive: 1', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Safe, unchanged: 0', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Dashboard sections' }).getByRole('button')).toHaveText(['Test results', 'Memory in use']);
+  await page.getByLabel('Memory to inspect', { exact: true }).selectOption('candidate_dashboard');
+  await expect(page.getByRole('button', { name: 'New problems: 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Needs investigation: 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Safe, unchanged: 0', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Full test details', { exact: true }).locator('..')).toHaveJSProperty('open', false);
+  await expect(page.getByText('Try harder cases', { exact: true }).locator('..')).toHaveJSProperty('open', false);
+  await expect(page.locator('.usage-grid')).toBeHidden();
+  await page.getByText('More statistics', { exact: true }).click();
   await expect(page.locator('.usage-grid')).toContainText('77');
   await expect(page.getByText('1 loaded · partial list, not a workspace total.', { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: 'New violations: 1', exact: true }).click();
+  await page.getByRole('button', { name: 'New problems: 1', exact: true }).click();
   await expect(page.locator('.decision-matrix tbody tr')).toHaveCount(1);
   await page.getByRole('button', { name: 'Request A - with - repetition 1: Failed check', exact: true }).click();
   await expect(page.getByLabel('Selected decision evidence')).toContainText('Synthetic waiver was not authorized');
@@ -55,9 +64,9 @@ test('simple entry hides detailed data; dashboard loads saved evidence and suppo
   await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Proposed memory', exact: true })).toHaveValue('Dashboard fixture memory');
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Admission outcomes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What changed?' })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'New violations: 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New problems: 1', exact: true })).toBeVisible();
   await page.screenshot({ path: '../artifacts/dashboard-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -72,6 +81,7 @@ test('simple entry hides detailed data; dashboard loads saved evidence and suppo
 test('missing usage is not represented as zero measured consumption', async ({ page }) => {
   await fixture(page, true);
   await page.goto('/?page=dashboard&candidate=candidate_dashboard&run=run_dashboard');
+  await page.getByText('More statistics', { exact: true }).click();
   await expect(page.locator('.usage-grid')).toContainText('Not reported');
   await expect(page.locator('.usage-grid dd')).toHaveText(['Not reported', 'Not reported', 'Not reported']);
 });
@@ -79,7 +89,8 @@ test('missing usage is not represented as zero measured consumption', async ({ p
 test('unavailable proposal statistics stay unavailable rather than becoming a fabricated zero', async ({ page }) => {
   await fixture(page, false, true);
   await page.goto('/?page=dashboard');
-  await expect(page.getByText('Proposal statistics unavailable.', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Saved: 0', exact: true })).toHaveCount(0);
-  await expect(page.getByText('No admission run selected.', { exact: true })).toBeVisible();
+  await page.getByText('More statistics', { exact: true }).click();
+  await expect(page.getByText('Memory statistics unavailable.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Not tested: 0', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Choose a memory to see its test results.', { exact: true })).toBeVisible();
 });

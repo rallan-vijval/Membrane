@@ -105,11 +105,11 @@ test('scope experiment polls and reloads evidence without unlocking approval or 
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
-  await page.getByRole('button', { name: 'Scope experiments', exact: true }).click();
-  await page.getByRole('button', { name: /Explore this memory/ }).click();
+  await page.getByText('Try harder cases', { exact: true }).click();
+  await page.getByRole('button', { name: 'Test nearby cases', exact: true }).click();
   await expect(page.getByText('Exploratory experiment: completed', { exact: false })).toBeVisible({ timeout: 10000 });
-  await page.getByText('Unverified owner - unchanged-safe', { exact: true }).click();
-  await expect(page.locator('.scope-scenario').filter({ has: page.getByText('Unverified owner - unchanged-safe', { exact: true }) }).getByText('Verified ownership required').first()).toBeVisible();
+  await page.getByText('Unverified owner - Safe, unchanged', { exact: true }).click();
+  await expect(page.locator('.scope-scenario').filter({ has: page.getByText('Unverified owner - Safe, unchanged', { exact: true }) }).getByText('Verified ownership required').first()).toBeVisible();
   await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Approve for use' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();

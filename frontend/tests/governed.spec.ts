@@ -122,16 +122,16 @@ test('memory panel shows availability from the backend and revokes with base ver
   const calls = await mock(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
-  await page.getByRole('button', { name: 'Approved memory', exact: true }).click();
-  const panel = page.locator('section', { has: page.getByRole('heading', { name: 'Approved memories' }) });
+  await page.getByRole('button', { name: 'Memory in use', exact: true }).click();
+  const panel = page.locator('section', { has: page.getByRole('heading', { name: 'Memory in use' }) });
   await expect(panel.locator('.memory')).toHaveCount(3);
   await expect(panel.locator('.memory-expired')).toContainText('An exception that has run out.');
-  await expect(panel.locator('.memory-expired').getByRole('button', { name: 'Revoke' })).toHaveCount(0);
+  await expect(panel.locator('.memory-expired').getByRole('button', { name: 'Withdraw' })).toHaveCount(0);
   const target = panel.locator('.memory', { hasText: 'Order 4821 may be refunded' });
-  await target.getByRole('button', { name: 'Revoke' }).click();
-  await expect(target.getByRole('button', { name: 'Confirm revoke' })).toBeDisabled();
-  await target.getByLabel(/Reason for revoking/).fill('Exception withdrawn');
-  await target.getByRole('button', { name: 'Confirm revoke' }).click();
+  await target.getByRole('button', { name: 'Withdraw' }).click();
+  await expect(target.getByRole('button', { name: 'Confirm withdrawal' })).toBeDisabled();
+  await target.getByLabel(/Reason for withdrawal/).fill('Exception withdrawn');
+  await target.getByRole('button', { name: 'Confirm withdrawal' }).click();
   await expect(panel.locator('.memory')).toHaveCount(2);
   await expect(page.locator('.active-version')).toContainText('version_after_revoke');
   const revoke = calls.find((c) => c.path === '/api/memory/entries/mem_4821/revoke')!;
@@ -143,12 +143,12 @@ test('a stale revoke shows the conflict and re-reads memory', async ({ page }) =
   const calls = await mock(page, { staleRevoke: true });
   await page.goto('/');
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
-  await page.getByRole('button', { name: 'Approved memory', exact: true }).click();
+  await page.getByRole('button', { name: 'Memory in use', exact: true }).click();
   const target = page.locator('.memory', { hasText: 'Order 4821 may be refunded' });
-  await target.getByRole('button', { name: 'Revoke' }).click();
-  await target.getByLabel(/Reason for revoking/).fill('Exception withdrawn');
+  await target.getByRole('button', { name: 'Withdraw' }).click();
+  await target.getByLabel(/Reason for withdrawal/).fill('Exception withdrawn');
   const before = calls.filter((c) => c.path === '/api/memory/entries').length;
-  await target.getByRole('button', { name: 'Confirm revoke' }).click();
+  await target.getByRole('button', { name: 'Confirm withdrawal' }).click();
   await expect(page.getByRole('alert')).toContainText('Active memory changed');
   await expect(page.locator('.memory')).toHaveCount(3);
   expect(calls.filter((c) => c.path === '/api/memory/entries').length).toBeGreaterThan(before);
@@ -160,7 +160,7 @@ test('run details show retrieved memory apart from test selection, with the cand
   await stage(page);
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
   await page.getByRole('button', { name: 'Open detailed results' }).click();
-  await page.getByRole('button', { name: /Synthetic VIP case/ }).click();
+  await page.getByRole('region', { name: '2. Test the proposed memory', exact: true }).getByRole('button', { name: /Synthetic VIP case/ }).click();
   const evidence = page.locator('.retrieval');
   await expect(evidence).toContainText('exact scope');
   await expect(evidence).toContainText('similarity 0.812');
@@ -175,7 +175,7 @@ test('a run without retrieval records says provenance is unavailable', async ({ 
   await stage(page);
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
   await page.getByRole('button', { name: 'Open detailed results' }).click();
-  await page.getByRole('button', { name: /Synthetic VIP case/ }).click();
+  await page.getByRole('region', { name: '2. Test the proposed memory', exact: true }).getByRole('button', { name: /Synthetic VIP case/ }).click();
   await expect(page.locator('.retrieval')).toContainText('Retrieval provenance unavailable');
 });
 
@@ -183,7 +183,8 @@ test('run with active memory sends the base version, shows the result, and reloa
   const calls = await mock(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
-  await page.getByRole('button', { name: 'Approved memory', exact: true }).click();
+  await page.getByRole('button', { name: 'Memory in use', exact: true }).click();
+  await page.getByText('Try the current AI', { exact: true }).first().click();
   await page.getByLabel('Request').selectOption('development-01');
   await page.getByRole('button', { name: 'Try the current AI' }).click();
   const result = page.locator('.active-run').first();

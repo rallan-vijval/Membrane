@@ -34,11 +34,11 @@ const STATUS_ICON: Record<string, string> = {
 };
 
 /** Status is always shown as icon + word, never color alone. */
-export function Pill({ value }: { value: string }) {
+export function Pill({ value, label: displayLabel }: { value: string; label?: string }) {
   const label: Record<string, string> = { staged: 'saved for testing', eligible: 'passed checks', quarantined: 'rejected', quarantine: 'rejected', testing: 'testing', inconclusive: 'needs investigation' };
   return (
     <span className={`pill pill-${value}`}>
-      <span aria-hidden="true">{STATUS_ICON[value] ?? '•'}</span> {label[value] ?? value}
+      <span aria-hidden="true">{STATUS_ICON[value] ?? '•'}</span> {displayLabel ?? label[value] ?? value}
     </span>
   );
 }
@@ -57,7 +57,7 @@ function HealthItem({ name, item }: { name: string; item: IntegrationHealth | un
   const status = item?.status ?? 'unavailable';
   return (
     <li title={item?.detail ?? ''}>
-      <span className="health-name">{name}</span> <Pill value={status} />
+      <span className="health-name">{name}</span> <Pill value={status} label={({ ready: "Connected", disabled: "Not in use", degraded: "Not checked", unavailable: "Unavailable" })[status]} />
     </li>
   );
 }
@@ -69,7 +69,7 @@ export function Header({ health, active, compact = false }: { health: Health | n
         <h1>Membrane</h1>
         <p>See what a new memory will make your agent do, before it does it.</p>
       </div>
-      <div className="header-right" hidden={compact}>
+      <details className={`system-settings${compact ? " system-settings-compact" : ""}`}><summary>Settings</summary><div className="header-right">
         <div className="active-version">
           Active memory: <strong>{active ? `${active.version_id} (${active.entries.length} ${active.entries.length === 1 ? 'entry' : 'entries'})` : 'unknown'}</strong>
         </div>
@@ -84,7 +84,7 @@ export function Header({ health, active, compact = false }: { health: Health | n
           {health?.vision && <HealthItem name="Vision" item={health.vision} />}
           {health?.tracing && <HealthItem name="Tracing" item={health.tracing} />}
         </ul>
-      </div>
+      </div></details>
     </header>
   );
 }

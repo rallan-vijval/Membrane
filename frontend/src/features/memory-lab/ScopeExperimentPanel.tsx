@@ -4,6 +4,8 @@ import { describeError } from '../../util';
 import { labPost, labRequest, rememberLabId, type DTO } from './api';
 
 type Experiment = DTO['ScopeExperiment'];
+const resultLabel: Record<string, string> = { 'unchanged-safe': 'Safe, unchanged', 'intended-safe-change': 'Safe change', 'new-policy-violation': 'New problem', 'pre-existing-violation': 'Problem without this memory', inconclusive: 'Needs investigation' };
+const actionLabel: Record<string, string> = { request_return: 'Ask for a return', request_verification: 'Verify ownership', refund_order: 'Refund', answer: 'Answer without a refund' };
 export function ScopeExperimentPanel({ candidate, baseVersionId, disabled = false }: { candidate: Candidate | null; baseVersionId: string | null; disabled?: boolean }) {
   const [experiment, setExperiment] = useState<Experiment | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,34 +43,33 @@ export function ScopeExperimentPanel({ candidate, baseVersionId, disabled = fals
     finally { setBusy(false); }
   };
   return <section className="panel scope-experiment" aria-labelledby="scope-experiment-h">
-    <h2 id="scope-experiment-h">Explore the boundary of this memory</h2>
-    <p className="hint">Seven versions of the synthetic order-4821 request, changing one logical fact at a time. Without and with the proposed memory, twice each: 28 initial decisions, at most 56 generation attempts. This experiment cannot approve or activate a memory.</p>
-    {candidate && <p className="meta">Uses saved proposal {candidate.id}. Save edits as a new version before exploring them.</p>}
-    <p className="meta">The proposal is deliberately included outside its scope to stress-test generalization. Production retrieval still enforces scope. The fixed trusted exception is independent of your document or recording.</p>
-    <button type="button" disabled={disabled || busy || running || !candidate || !baseVersionId || api.mode === 'synthetic'} onClick={() => void start()}>{experiment ? 'Start a new scope experiment' : 'Explore this memory\u2019s scope'}</button>
+    <h2 id="scope-experiment-h">Where does this memory stop applying?</h2>
+    <p className="hint">7 nearby requests · 28 decisions. This extra test cannot approve a memory.</p>
+    <details><summary>How this test works</summary><p>The saved proposal is deliberately included outside its scope. Production retrieval still enforces scope. Uses the synthetic order-4821 exception, fixed policy and up to 56 generation attempts. Save edits before testing them.</p></details>
+    <button type="button" disabled={disabled || busy || running || !candidate || !baseVersionId || api.mode === 'synthetic'} onClick={() => void start()}>{experiment ? 'Test nearby cases again' : 'Test nearby cases'}</button>
     {api.mode === 'synthetic' && <p className="meta">Live exploratory experiments are disabled in synthetic mode.</p>}
     {busy && <p role="status">Preparing frozen scenarios...</p>}
     {problem && <p className="panel-problem" role="status">{problem}</p>}
     {experiment && <>
       <p role="status">Exploratory experiment: {experiment.status} - {experiment.progress.completed} / {experiment.progress.total} decisions recorded</p>
-      <p className="meta">{experiment.experiment_id} - base {experiment.base_version_id} - model calls {String(experiment.usage?.model_calls ?? 0)} / 56</p>
+      <details><summary>Run details</summary><p className="meta">{experiment.experiment_id} - base {experiment.base_version_id} - model calls {String(experiment.usage?.model_calls ?? 0)} / 56</p></details>
       {experiment.error && <p className="panel-problem">{experiment.error}</p>}
       {experiment.scenarios.map(scenario => {
         const evidence = experiment.cases?.find(c => c.case_id === scenario.scenario_id);
         return <details key={scenario.scenario_id} className="scope-scenario">
-          <summary>{scenario.title} - {evidence?.executions.length === 4 ? evidence.classification : 'awaiting complete evidence'}</summary>
+          <summary>{scenario.title} - {evidence?.executions.length === 4 ? resultLabel[evidence.classification] : 'Waiting for results'}</summary>
           <p><strong>Trusted rule:</strong> {scenario.rule}</p>
-          <p><strong>Expected with the proposed memory:</strong> {scenario.expected_action}</p>
+          <p><strong>Expected with the proposed memory:</strong> {actionLabel[scenario.expected_action] ?? scenario.expected_action}</p>
           <details><summary>Changed facts and frozen ground truth</summary><pre>{JSON.stringify({ changes: scenario.changed_fields, task: scenario.task, policy: scenario.policy_snapshot, profile: scenario.retrieval.profile_id, retrieved_memory_ids: scenario.retrieval.entries.map(e => e.memory_id) }, null, 2)}</pre></details>
           {evidence && <p>Repeated actions consistent: {evidence.repetition_consistent ? 'yes' : 'not established'}</p>}
           {evidence?.executions.map(execution => <article key={`${execution.side}:${execution.repetition}`}>
             <h3>{execution.side === 'baseline' ? 'Without the proposal' : 'With the proposal'} - repetition {execution.repetition}</h3>
-            {execution.error && <p className="panel-problem">Invalid evidence: {execution.error}</p>}
+            {execution.error && <p className="panel-problem">This response could not be checked.</p>}
             <p>{execution.attempt?.answer ?? 'No valid decision'}</p>
-            <p>Attempted action: {execution.attempt?.action ?? 'unavailable'}</p>
+            <p>Attempted action: {execution.attempt ? actionLabel[execution.attempt.action] ?? execution.attempt.action : 'Unavailable'}</p>
             {execution.tool_outcome && <p>Tool guard: {execution.tool_outcome.allowed ? 'allowed' : 'blocked'} - {Array.isArray(execution.tool_outcome.reasons) ? execution.tool_outcome.reasons.join('; ') : 'No reason recorded'}</p>}
             <ul>{execution.checks.map(check => <li key={check.code}>{check.passed ? 'PASS' : 'FAIL'}: {check.reason}</li>)}</ul>
-            <details><summary>Raw model evidence</summary><pre>{JSON.stringify(execution.raw_responses, null, 2)}</pre></details>
+            <details><summary>Raw model evidence</summary><pre>{JSON.stringify({ error: execution.error, attempt: execution.attempt, raw_responses: execution.raw_responses }, null, 2)}</pre></details>
           </article>)}
         </details>;
       })}

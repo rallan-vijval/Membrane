@@ -56,13 +56,13 @@ export function MemoryPanel({ memory, problem, disabled, onRevoke, onRefresh }: 
 
   return (
     <section className="panel" aria-labelledby="memory-h">
-      <h2 id="memory-h">Approved memories</h2>
-      <p className="hint">What the live agent can be given right now. Each memory has an owner version, a scope and an expiry. Expired memories stay on record but are no longer used.</p>
+      <h2 id="memory-h">Memory in use</h2>
+      <p className="hint">Approved memories only. Expired or withdrawn memories are not used.</p>
       {problem && <p className="panel-problem" role="status">{problem}</p>}
       {!memory && !problem && <p className="empty">Loading…</p>}
       {memory && (
         <>
-          <p className="meta">Version <code>{memory.version_id}</code>, evaluated by the backend at {clock(memory.evaluated_at)}.{memory.truncated ? ' Showing the first 100.' : ''}</p>
+          <details><summary>Version details</summary><p className="meta">Version <code>{memory.version_id}</code>, evaluated by the backend at {clock(memory.evaluated_at)}.{memory.truncated ? ' Showing the first 100.' : ''}</p></details>
           {memory.items.length === 0 && <p className="empty">No memories in this version.</p>}
           <ul className="memory-list">
             {memory.items.map((m) => (
@@ -73,25 +73,25 @@ export function MemoryPanel({ memory, problem, disabled, onRevoke, onRefresh }: 
                     <Pill value={m.availability} /> {m.availability === 'active' ? '' : 'No longer used · '}{scopeLabel(m.scope)} ·{' '}
                     {m.availability !== 'active' ? `expired at ${clock(m.expires_at)}` : untilLabel(m.expires_at, tick) === 'no planned expiry' ? 'no planned expiry' : `expires ${untilLabel(m.expires_at, tick)} (${clock(m.expires_at)})`}
                   </p>
-                  <p className="meta"><code>{m.id}</code> from {m.candidate_id ? <code>{m.candidate_id}</code> : 'seeded policy'}, activated in <code>{m.version_id}</code></p>
+                  <details><summary>Origin</summary><p className="meta"><code>{m.id}</code> from {m.candidate_id ? <code>{m.candidate_id}</code> : 'seeded policy'}, activated in <code>{m.version_id}</code></p></details>
                 </div>
                 {m.availability === 'active' && revoking !== m.id && (
-                  <button type="button" className="danger" disabled={disabled} onClick={() => { setRevoking(m.id); setReason(''); }}>Revoke</button>
+                  <button type="button" className="danger" disabled={disabled} onClick={() => { setRevoking(m.id); setReason(''); }}>Withdraw</button>
                 )}
                 {revoking === m.id && (
                   <div className="revoke-form">
                     <label className="field">
-                      <span>Reason for revoking {m.id}</span>
+                      <span>Reason for withdrawal</span>
                       <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. exception withdrawn by supervisor" disabled={disabled} />
                     </label>
                     <div className="actions">
                       <button type="button" className="danger" disabled={disabled || reason.trim().length === 0}
                               onClick={() => { onRevoke(m.id, reason.trim()); setRevoking(null); }}>
-                        Confirm revoke
+                        Confirm withdrawal
                       </button>
                       <button type="button" className="secondary" onClick={() => setRevoking(null)}>Cancel</button>
                     </div>
-                    <p className="meta">Revoking creates a new memory version without this entry. The old version and its evidence stay on record.</p>
+                    <p className="meta">Stops future use. Past test results stay on record.</p>
                   </div>
                 )}
               </li>

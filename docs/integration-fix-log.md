@@ -58,3 +58,8 @@ Implemented on feat/memory-experiments-voice-sources. Added bounded ElevenLabs S
 ## Simple use page and detailed dashboard
 
 Split the default upload/record/review/test/decision flow from the dashboard. Added actual-data outcome bars, decision matrix drilldown, reported usage, bounded proposal stats, memory availability and review activity. URL/back/reload and microphone cleanup are covered. No backend/approval changes or new paid calls. UI structure and template handoff are in ui-architecture-handoff.md. Production build and 23 browser checks passed.
+
+
+## Dashboard simplification
+
+Reduced navigation to Test results and Memory in use. Hid connection checks in Settings; grouped full evidence, nearby-case experiments and statistics into disclosures. Renamed proposal selector and withdrawal action; reduced technical text and hid version/origin metadata. Approval and provider behavior unchanged. See dashboard-simplification.md for the current UI handoff.

@@ -1,3 +1,5 @@
+> Current dashboard navigation is simplified to Test results and Memory in use. See dashboard-simplification.md for the replacement labels and default disclosures. The implementation notes below describe the earlier four-section architecture.
+
 # Two-page UI architecture
 
 Implemented on feat/memory-experiments-voice-sources. This is page structure and functional data visualization; the existing palette is retained so the visual team can reskin it independently.

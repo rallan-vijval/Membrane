@@ -263,8 +263,8 @@ export function App() {
         history={history} memory={memory} health={health} onSelectCandidate={selectSaved} onUse={() => navigate('use')}
         evidence={<><RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} /><Footer history={history} active={active} run={run} mode={api.mode} /></>}
         experiments={<ScopeExperimentPanel candidate={candidate} baseVersionId={active?.version_id ?? null} disabled={busy !== null} />}
-        memoryTools={<div className="governed"><MemoryPanel memory={memory} problem={memoryProblem} disabled={busy !== null} onRevoke={onRevoke} onRefresh={() => void refreshShared()} />
-          <ActiveTaskPanel versionId={memory?.version_id ?? active?.version_id ?? null} disabled={busy !== null} onStale={() => void refreshShared()} /></div>} />
+        memoryTools={<div className="memory-workspace"><MemoryPanel memory={memory} problem={memoryProblem} disabled={busy !== null} onRevoke={onRevoke} onRefresh={() => void refreshShared()} />
+          <details className="dashboard-disclosure" open={new URLSearchParams(window.location.search).has('execution') ? true : undefined}><summary>Try the current AI</summary><ActiveTaskPanel versionId={memory?.version_id ?? active?.version_id ?? null} disabled={busy !== null} onStale={() => void refreshShared()} /></details></div>} />
     </div>
   );
 }

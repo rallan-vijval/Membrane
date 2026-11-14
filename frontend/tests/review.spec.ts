@@ -113,7 +113,7 @@ async function reachEligible(page: Page) {
   await expect(page.getByText('Rejected - inspect the failures')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve for use' })).toBeDisabled();
   await page.getByRole('button', { name: 'Open detailed results' }).click();
-  await page.getByRole('button', { name: /Synthetic policy case 0/ }).click();
+  await page.getByRole('region', { name: '2. Test the proposed memory', exact: true }).getByRole('button', { name: /Synthetic policy case 0/ }).click();
   await expect(page.getByText('Tool guard blocked it').first()).toBeVisible();
   await expect(page.getByText('Raw model response').first()).toBeVisible();
   await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
@@ -212,13 +212,13 @@ test('governed memory honors backend expiry and sends a version-bound revoke', a
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
-  await page.getByRole('button', { name: 'Approved memory', exact: true }).click();
-  const panel = page.getByRole('region', { name: 'Approved memories' });
-  await expect(panel.getByRole('button', { name: 'Revoke', exact: true })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Memory in use', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Memory in use' });
+  await expect(panel.getByRole('button', { name: 'Withdraw', exact: true })).toHaveCount(1);
   await expect(panel).toContainText('No longer used');
-  await panel.getByRole('button', { name: 'Revoke', exact: true }).click();
-  await page.getByLabel('Reason for revoking memory_browser').fill('withdrawn');
-  await panel.getByRole('button', { name: 'Confirm revoke' }).click();
+  await panel.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByLabel('Reason for withdrawal').fill('withdrawn');
+  await panel.getByRole('button', { name: 'Confirm withdrawal' }).click();
   await expect(panel).toContainText('version_revoked');
   await expect(panel).toContainText('No memories in this version');
 });
