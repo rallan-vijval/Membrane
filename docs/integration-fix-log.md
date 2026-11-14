@@ -15,3 +15,9 @@ Previous review blockers in integration-review.md describe the original submitte
 ## Agent B checkpoint 4 integration verification
 
 Reviewed 5d22cf6 against main a8520c6. This checkpoint adds seven browser tests and the B progress log only; it changes no application code or dependencies. Merged without conflicts or required adjustments. Production TypeScript/Vite build passed. All 14 Playwright tests passed under the committed configuration, using system Chrome, Vite and the actual local FastAPI health endpoint. Governance requests use explicitly synthetic intercepted fixtures; live provider calls were not run. This resolves checkpoint 4's earlier local proxy-test limitation.
+
+## Local cleanup before credential testing
+
+Consolidated the working checkout into C:\MongoDB\membrane on main. Removed clean obsolete backend/frontend/provider-review/integration worktrees after recreating the Python environment and frontend dependencies in the main checkout. Branches/history remain available. Kept offline npm tooling under C:\MongoDB\.tools and preserved integration screenshots under artifacts/integration-review. Created an ignored local .env from the example with blank credentials.
+
+A fresh .env exposed the legacy Atlas test module loading configuration during collection. It now requires RUN_LIVE_INTEGRATION=1 before loading .env, matching the backend live-test opt-in and preventing ordinary test collection from enabling database tests or contaminating offline settings. Verified in the canonical checkout: 95 passed, 2 skipped; pip check and frontend production build passed.

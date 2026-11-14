@@ -1,6 +1,6 @@
 """Governance rules, checked against the real Atlas cluster. No LLM calls.
 
-Skipped unless MONGODB_URI is set. Uses its own tenants (test_a / test_b) and cleans up.
+Skipped unless RUN_LIVE_INTEGRATION=1 and MONGODB_URI is set. Uses its own tenants (test_a / test_b) and cleans up.
 """
 import os
 from datetime import timedelta
@@ -9,6 +9,9 @@ import pytest
 
 pytest.importorskip("pymongo")
 from dotenv import load_dotenv  # noqa: E402
+
+if os.environ.get("RUN_LIVE_INTEGRATION") != "1":
+    pytest.skip("Set RUN_LIVE_INTEGRATION=1 to opt into real Atlas tests", allow_module_level=True)
 
 load_dotenv()
 if not os.environ.get("MONGODB_URI"):
