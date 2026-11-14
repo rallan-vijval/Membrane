@@ -20,6 +20,7 @@ const audioErrors: Record<string, string> = {
 };
 
 export function VoiceSourceIntake({ onSourceReady, disabled = false }: { onSourceReady: (source: Source) => void; disabled?: boolean }) {
+  const [expanded, setExpanded] = useState(() => new URLSearchParams(window.location.search).has('audio_source'));
   const [clip, setClip] = useState<File | null>(null);
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -133,8 +134,9 @@ export function VoiceSourceIntake({ onSourceReady, disabled = false }: { onSourc
     } catch (err) { setReviewFailed(true); setProblem(describeError(err)); }
     finally { setBusy(false); }
   };
-  return <details className="voice-source-intake">
-    <summary>Use a voice note instead</summary>
+  return <div className="voice-source-intake">
+    <div className="actions"><button type="button" className="secondary" aria-expanded={expanded} aria-controls="voice-source-controls" onClick={() => setExpanded(value => !value)}>Use a voice note instead</button></div>
+    <div id="voice-source-controls" hidden={!expanded}>
     <p className="hint">Record or upload synthetic audio, up to 120 seconds and 10 MiB. ElevenLabs transcribes it; you review the text before DeepSeek proposes a memory. Speech never grants authority.</p>
     {synthetic && <p className="meta">Voice intake is disabled in synthetic mode. No audio is sent.</p>}
     <label className="field"><span>Audio source file</span><input type="file" accept="audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/ogg,audio/webm,.mp3,.wav,.m4a,.ogg,.webm" disabled={locked || recording} onChange={e => select(e.target.files?.[0] ?? null)} /></label>
@@ -155,5 +157,6 @@ export function VoiceSourceIntake({ onSourceReady, disabled = false }: { onSourc
         <button type="button" disabled={locked || !text.trim()} onClick={() => void review(reviewFailed)}>{reviewFailed ? "Retry proposal extraction (new paid request)" : "Confirm transcript and propose a memory"}</button>
       </>}
     </div>}
-  </details>;
+    </div>
+  </div>;
 }

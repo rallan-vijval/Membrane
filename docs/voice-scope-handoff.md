@@ -58,7 +58,7 @@ Feature modules are isolated in `frontend/src/features/memory-lab/`. No CSS was 
 - Production TypeScript/Vite build passed; 19 browser tests passed against local running servers using a temporary no-server Playwright config. The committed config still starts its own servers when ports are free.
 - Real DeepSeek/Atlas scope experiment `experiment_5e68eba8214346a1baf6b31f70252911` recorded all 28 decisions with 28 generation calls. Overall status was inconclusive; actual cases included unchanged-safe, baseline violations and a new violation for excess amount. No passing result is fabricated.
 - Candidate admission and active version remained unchanged during that live experiment.
-- ElevenLabs live transcription is pending credentials. HTTP shape, failure codes, input validation, quotas and transcript review are verified with explicit fakes; ffmpeg WAV and nonseekable WebM decoding were exercised for real. No live STT success is claimed.
+- ElevenLabs live transcription passed after credentials were supplied: a 13.7025-second locally synthesized note was transcribed through the application API using scribe_v2 (audio_source_4bbc0b70abd24f41a44d01ecf6f4c199). No candidate was created or activated. Failure paths and transcript review use explicit fakes; ffmpeg WAV and nonseekable WebM decoding were exercised for real.
 
 ## Live checks after credentials arrive
 
