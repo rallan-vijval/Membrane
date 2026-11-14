@@ -1,5 +1,12 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
+uploads/
+artifacts/
+frontend/node_modules/
+frontend/dist/
+*.egg-info/
