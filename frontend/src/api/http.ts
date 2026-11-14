@@ -7,7 +7,7 @@ import {
   type Side,
 } from './types';
 import type { components } from './generated';
-import { handlingFromWire, tasksFromWire } from './inboxWire';
+import { activeExecutionFromWire, memoryFromWire, tasksFromWire, type WireActiveExecution, type WireMemoryEntries, type WireRevokeResult, type WireTaskOptions } from './governedWire';
 import { activeFromWire, candidateFromWire, healthFromWire, historyFromWire, runFromWire, sourceFromWire } from './normalize';
 type DTO = components['schemas'];
 
@@ -58,7 +58,7 @@ export const httpApi: MembraneApi = {
   getCandidate: (candidateId: string) => request<DTO['Candidate']>(`/candidates/${id(candidateId)}`).then(candidateFromWire),
   startRun: (candidateId: string) => request(`/candidates/${id(candidateId)}/runs`, json({})),
   getRun: (runId: string) => request<DTO['Run']>(`/runs/${id(runId)}`).then(runFromWire),
-  revise: (candidateId: string, input: { text: string; scope: Scope }) =>
+  revise: (candidateId: string, input: { text: string; scope: Scope; ttl_seconds: number }) =>
     request<DTO['Candidate']>(`/candidates/${id(candidateId)}/revise`, json(input)).then(candidateFromWire),
   approve: (candidateId: string, runId: string) =>
     request<DTO['Candidate']>(`/candidates/${id(candidateId)}/approve`, json({ run_id: runId,
@@ -69,7 +69,12 @@ export const httpApi: MembraneApi = {
   history: () => request<DTO['History']>('/history').then(historyFromWire),
   audio: (runId: string, caseId: string, side: Side, repetition: Repetition) =>
     request(`/runs/${id(runId)}/cases/${id(caseId)}/audio`, json({ side, repetition })),
-  listTasks: () => request<DTO['TaskOptions']>('/tasks').then(tasksFromWire),
+  memoryEntries: () => request<WireMemoryEntries>('/memory/entries').then(memoryFromWire),
+  // One key per (memory, base version, reason): an exact retry reuses it, a different request does not.
+  revokeMemory: (memoryId: string, input: { base_version_id: string; reason: string }) =>
+    request<WireRevokeResult>(`/memory/entries/${id(memoryId)}/revoke`, json(input, `revoke:${memoryId}:${input.base_version_id}:${input.reason}`)),
+  listTasks: () => request<WireTaskOptions>('/tasks').then(tasksFromWire),
   executeTask: (fixtureId: string, baseVersionId: string) =>
-    request<DTO['ActiveExecution']>(`/agent/tasks/${id(fixtureId)}/execute`, json({ base_version_id: baseVersionId })).then(handlingFromWire),
+    request<WireActiveExecution>(`/agent/tasks/${id(fixtureId)}/execute`, json({ base_version_id: baseVersionId })).then(activeExecutionFromWire),
+  getExecution: (executionId: string) => request<WireActiveExecution>(`/agent/executions/${id(executionId)}`).then(activeExecutionFromWire),
 };

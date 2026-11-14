@@ -37,9 +37,9 @@ pre { background: #f3f5fa; border: 1px solid var(--rule); border-radius: 6px; pa
 .health li { display: flex; gap: 6px; align-items: center; }
 
 .pill { display: inline-flex; gap: 5px; align-items: center; padding: 1px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 600; background: #e9ecf4; color: var(--ink); white-space: nowrap; }
-.pill-ready, .pill-eligible, .pill-approved, .pill-completed { background: var(--pass-soft); color: var(--pass); }
-.pill-unavailable, .pill-quarantined, .pill-quarantine, .pill-failed { background: var(--block-soft); color: var(--block); }
-.pill-degraded, .pill-inconclusive { background: var(--hold-soft); color: var(--hold); }
+.pill-active, .pill-ready, .pill-eligible, .pill-approved, .pill-completed { background: var(--pass-soft); color: var(--pass); }
+.pill-revoked, .pill-unavailable, .pill-quarantined, .pill-quarantine, .pill-failed { background: var(--block-soft); color: var(--block); }
+.pill-expired, .pill-degraded, .pill-inconclusive { background: var(--hold-soft); color: var(--hold); }
 .pill-testing, .pill-running, .pill-queued { background: var(--membrane-soft); color: var(--membrane); }
 
 .error, .busy { margin: 16px 32px 0; padding: 11px 14px; border-radius: 8px; display: flex; justify-content: space-between; gap: 16px; align-items: baseline; font-weight: 600; }
@@ -169,33 +169,23 @@ ul.timeline { list-style: disc; }
 }
 @media (prefers-reduced-motion: reduce) { .progress > div { transition: none; } }
 
-/* ---------- views + mailbox ---------- */
-.views { display: flex; gap: 4px; padding: 14px 32px 0; }
-.view { background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: var(--ink-soft); padding: 8px 14px; font-size: 15px; }
-.view:hover:not(:disabled) { background: none; color: var(--ink); }
-.view-on { color: var(--ink); border-bottom-color: var(--membrane); }
-.columns[hidden], .mailbox[hidden] { display: none; }
-
-.mailbox { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 20px; padding: 20px 32px 8px; align-items: start; }
-.mail-list, .mail-reader { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; min-width: 0; }
-.mail-list { padding: 16px 0 8px; }
-.mail-list h2, .mail-list > .meta, .mail-list > .intake-problem { margin-left: 16px; margin-right: 16px; }
-.mail-list ul { list-style: none; padding: 0; margin-top: 10px; }
-.mail-item { width: 100%; display: grid; gap: 1px; text-align: left; background: none; color: inherit; border: none; border-top: 1px solid var(--rule); border-left: 4px solid transparent; border-radius: 0; padding: 10px 16px 10px 12px; font-weight: 400; }
-.mail-item:hover:not(:disabled) { background: #f6f7fb; }
-.mail-item-open, .mail-item-open:hover:not(:disabled) { background: var(--membrane-soft); border-left-color: var(--membrane); }
-.mail-from { font-weight: 700; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.mail-subject { font-size: 14px; }
-.mail-snippet { font-size: 13px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mail-count { font-size: 12px; font-weight: 700; color: var(--membrane); }
-.mail-reader { padding: 22px 24px; display: grid; gap: 14px; }
-.mail-head { border-bottom: 1px solid var(--rule); padding-bottom: 12px; }
-.mail-head h2 { font-size: 22px; margin-bottom: 2px; }
-.mail-body { white-space: pre-wrap; font-size: 15.5px; max-width: 70ch; }
-.mail-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.mail-actions .hint { flex-basis: 100%; margin-bottom: 0; }
-.draft { border: 1px solid var(--rule); border-left: 4px solid #9aa5bd; border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; }
-.draft-latest { border-left-color: var(--membrane); }
-.draft-body { white-space: pre-wrap; font-size: 15.5px; max-width: 70ch; }
-.draft-action { font-size: 14px; }
-@media (max-width: 1180px) { .views { padding: 12px 16px 0; } .mailbox { grid-template-columns: minmax(0, 1fr); padding: 16px; } }
+/* ---------- governed memory phase ---------- */
+.governed { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; padding: 12px 32px 8px; align-items: start; }
+.panel-problem { margin: 8px 0; padding: 8px 10px; border-radius: 6px; background: var(--hold-soft); color: #6b4500; font-size: 14px; font-weight: 500; }
+.memory-list { list-style: none; padding: 0; margin-top: 10px; display: grid; gap: 10px; }
+.memory { border: 1px solid var(--rule); border-left: 4px solid var(--pass); border-radius: 8px; padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.memory-expired { border-left-color: var(--hold); background: #fafbfd; }
+.memory-expired .memory-text { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: #9aa5bd; }
+.memory-main { flex: 1 1 260px; min-width: 0; display: grid; gap: 4px; }
+.memory-text { font-weight: 500; }
+.revoke-form { flex-basis: 100%; border-top: 1px solid var(--rule); padding-top: 4px; }
+.retrieval { margin: 4px 0 12px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); display: grid; gap: 6px; }
+.retrieved { list-style: none; padding: 0; display: grid; gap: 8px; font-size: 14px; }
+.overlay { font-size: 13.5px; border-top: 1px dashed var(--membrane); padding-top: 6px; }
+.task-field { flex-basis: 100%; }
+.active-runs { list-style: none; padding: 0; margin-top: 10px; display: grid; gap: 12px; }
+.active-run { border: 1px solid var(--rule); border-left: 4px solid #9aa5bd; border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.active-run-latest { border-left-color: var(--membrane); }
+.active-run-head strong { font-size: 16px; }
+a { color: var(--membrane); }
+@media (max-width: 1180px) { .governed { grid-template-columns: minmax(0, 1fr); padding: 8px 16px; } }

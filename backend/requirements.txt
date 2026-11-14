@@ -7,3 +7,5 @@ openai==3.51.0
 python-multipart==0.0.33
 pillow==13.0.0
 httpx==0.28.1
+
+-r requirements-integrations.txt

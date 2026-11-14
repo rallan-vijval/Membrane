@@ -1,3 +1,5 @@
+> Update: blockers corrected on the integration branch. See [current readiness](api-readiness.md) and [correction log](integration-fix-log.md). The review below records the originally submitted checkpoints.
+
 # A/B/C integration review — November 14, 2026
 
 Main is unchanged at `9b36508`. Review is isolated from the agents' source branches.

@@ -82,8 +82,8 @@ class SafeTracing:
         # Missing optional instrumentation must never block or retry business work.
         if self.tracer is None and self.settings.langsmith_tracing:
             try:
-                from .integrations.api import create_tracer
-                self.tracer = create_tracer({"enabled": True, "api_key": self.settings.langsmith_api_key.get_secret_value()})
+                from .integrations.api import create_tracer, TracerConfig
+                self.tracer = create_tracer(TracerConfig(enabled=True, api_key=self.settings.langsmith_api_key.get_secret_value()))
             except Exception:
                 self.tracer = None
         context, handle = None, TraceHandle()

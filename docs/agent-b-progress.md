@@ -42,34 +42,47 @@ Lifetime (TTL) picker, governed-memory panel with expiry and revoke, per-case re
 Branch `feat/membrane-review-ui` has three commits after the merged `f061fe8` (a redesign written
 against wire-shaped types). They are superseded by this branch and should not be merged.
 
-## 2026-11-14, checkpoint 2: support inbox view (the email use case)
+## 2026-11-14, checkpoint 2 withdrawn
 
-Added a second view, **Support inbox** (`frontend/src/Inbox.tsx`), next to **Memory review**. Open it with the
-tab or `?view=inbox`. Memory review stays the default view so the existing Playwright flow is unchanged.
+The support-inbox view (commit `49c66a5`) was removed at the owner's request by revert `b4579e3`. Nothing
+from it remains in the tree.
 
-- An internal supervisor email (synthetic sample, same text as `fixtures/support-4821.png`) has
-  **Send to memory review**: the email is typeset word for word as an image and uploaded through the
-  existing `POST /api/sources`. This part needs no new backend work.
-- Customer emails come from `GET /api/tasks`. **Let the agent handle it** calls
-  `POST /api/agent/tasks/{fixture_id}/execute` with `{base_version_id}` and shows the draft reply, the
-  attempted tool call, the tool guard result and the memories the agent was given. Handling the same
-  email again after an approval stacks the new draft above the old one, each labelled with its version.
-- It is a mailbox view over the review API's synthetic tasks. It does not connect to Gmail, send mail
-  or move money.
+## 2026-11-14, checkpoint 3: Task B from `docs/NEXT_PHASE_PLAN.md`
 
-### Dependency on Agent A
+Built against Agent A's published contract (`contracts/openapi.yaml` at `a025e71`, branch
+`feat/governed-memory-backend`). Files: `frontend/src/governed.tsx` (new), `api/governedWire.ts` (new),
+`api/types.ts`, `normalize.ts`, `http.ts`, `synthetic.ts`, `components.tsx`, `App.tsx`, `styles.css`,
+`tests/review.spec.ts`.
 
-Both task endpoints are in `docs/NEXT_PHASE_PLAN.md` but not in `contracts/openapi.yaml` yet.
-`frontend/src/api/inboxWire.ts` reads their responses defensively and is marked provisional: it accepts
-`items[].fixture_id`, and for the execute response `execution_id`, `version_id` (or `base_version_id`),
-`execution` (or `result`, Execution-shaped), `memory_retrieval.entries[]` with
-`memory_id`/`text`/`scope`/`reason`/`semantic_score`, and `trace_url`. Replace it with generated types when
-the contract lands. Until the backend ships them, the inbox says the customer emails could not be loaded
-(real mode) and works fully only in synthetic mode.
+| Plan item | State |
+| --- | --- |
+| Lifetime on stage/revise (1 to 1440 min, default 60, sent as `ttl_seconds`, preserved across revisions) | Done |
+| Order scope needs both order and customer ID before staging | Done (button stays disabled) |
+| Governed-memory panel: IDs, scope, expiry, availability, lineage; backend `availability` is the authority | Done |
+| Refresh after approve/revoke and when an expiry boundary passes | Done (timer only schedules a re-read) |
+| Revoke per active entry: required reason, explicit `base_version_id`, stable idempotency key, 409 shown then refreshed | Done |
+| Run details: memory retrieval per case, separate from test-case selection, candidate overlay marked "B only" | Done |
+| Old runs: "Retrieval provenance unavailable", nothing inferred | Done |
+| "Run with active memory": fixture picker, bounded execute, result/retrieval/guard/version, reload by `?execution=` | Done |
+| New health components (embeddings, memory search, vision, tracing) shown when reported | Done |
+| Trace links only when the backend supplies them | Done (run and execution) |
+| ElevenLabs playback | Unchanged from baseline |
+| Synthetic fixtures extended, banner unchanged, no fallback from real mode | Done |
+| Regenerate `generated.ts` from the new contract | **Not done.** `openapi-typescript` could not be run here. `governedWire.ts` holds hand-written wire types for the new shapes; after merging A's contract run `npm run generate:api` and swap them in. |
+| New Playwright tests for TTL/revoke/retrieval/live task | **Not done.** Existing tests adjusted only: scope select located by label (there are now two selects), and the mock answers the two new GET endpoints. |
+| Root README and demo runbook | Runbook section added; root README untouched (Agent A's entry points are still changing) |
 
-### Verification
+New-endpoint failures (for example a backend without `/api/memory/entries`) are shown inside their own panel
+and never raise the page-level alert, so the base review flow keeps working against an older backend.
 
-Headless Chrome, synthetic mode: order 4821 email handled before approval (asks for the return), supervisor
-email sent to review, broad rule quarantined, order-scoped revision approved, order 4821 handled again
-(refund, return waived, guard allowed), another VIP's email unchanged, 390 px width fits, no page errors.
-Same limits as checkpoint 1: `npm ci`, `npm run build` and `npm test` not run here.
+### Verification, stated exactly
+
+Headless Chrome, synthetic mode, esbuild bundle: order 4821 run before approval (asks for return); broad
+rule quarantined with retrieval evidence visible; revision blocked until customer ID entered; 1-minute
+lifetime approved; order 4821 run again (refund, return waived, guard allowed); another VIP unchanged;
+entry shown as expired after its minute and order 4821 back to asking for the return; a memory revoked with
+a reason and a revoke event listed; 390 px width fits; no page errors. Type-checked with stand-in React
+typings.
+
+**Not run:** `npm ci`, `npm run build`, `npm test`, `npm run generate:api`, and anything against the real
+backend. The field mapping in `governedWire.ts` follows the contract text but has not met a live response.

@@ -13,3 +13,18 @@ Use the PowerShell setup in the root README. Start `backend.app.main:app` on 127
 The synthetic UI rehearsal has a persistent banner, does not contact Atlas/models, and resets on reload. Browser smoke fixtures are also explicitly synthetic. Recorded provider evidence may only be presented with its run/model/time provenance; this frontend does not implement a separate recorded-run import feature.
 
 Verification and current blockers are in `CHANGELOG.md`. Do not deploy publicly or change Atlas tiers as part of this demo.
+
+## Governed memory (next phase)
+
+Needs the backend from `feat/governed-memory-backend`. Without it the two lower panels say they could not load.
+
+1. In **Run with active memory**, pick the order 4821 request and run it. The agent asks for the return.
+2. Stage the broad VIP memory, run the behavior test, open a failing case: **Memory the agent was given**
+   shows what was retrieved for that case, with the candidate marked "B only".
+3. Revise to order 4821 with its customer ID and exception reference, set **Lifetime** to 1 minute, test,
+   approve. **Memory in force** now lists the new entry with its expiry.
+4. Run order 4821 again: refund, return waived, tool guard allowed. Run another VIP's request: unchanged.
+5. Wait for the minute to pass. The entry turns to *expired* and running order 4821 asks for the return again.
+   Or use **Revoke** with a reason for the same effect immediately.
+
+Say what you actually observe. If the model does not change behavior after approval, show that result.

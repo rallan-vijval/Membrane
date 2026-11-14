@@ -31,6 +31,8 @@ async function mockContract(page: Page, options: { stale?: boolean; queued?: boo
     } satisfies DTO['Health'];
     else if (path === '/api/memory/active') body = version;
     else if (path === '/api/history') body = { versions: [version], events: [], truncated: false } satisfies DTO['History'];
+    else if (path === '/api/memory/entries') body = { version_id: version.version_id, evaluated_at: '2026-11-14T17:00:00Z', items: [], truncated: false };
+    else if (path === '/api/tasks') body = { items: [], truncated: false };
     else if (path.endsWith('/image')) return route.fulfill({ path: screenshot, contentType: 'image/png' });
     else if (path.startsWith('/api/sources')) body = examples.source;
     else if (path === '/api/candidates' && method === 'POST') {
@@ -104,7 +106,7 @@ async function reachEligible(page: Page) {
   await page.goto('/');
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByLabel('Candidate memory').fill('All VIP customers can keep refunded items.');
-  await page.getByRole('combobox').selectOption('global');
+  await page.getByLabel('Scope').selectOption('global');
   await page.getByRole('button', { name: 'Stage candidate', exact: true }).click();
   await page.getByRole('button', { name: 'Run behavior test', exact: true }).click();
   await expect(page.getByText('Should be quarantined')).toBeVisible();
@@ -113,7 +115,7 @@ async function reachEligible(page: Page) {
   await expect(page.getByText('Tool guard blocked it').first()).toBeVisible();
   await expect(page.getByText('Raw model response').first()).toBeVisible();
   await page.getByLabel('Candidate memory').fill(narrowText);
-  await page.getByRole('combobox').selectOption('order');
+  await page.getByLabel('Scope').selectOption('order');
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
   await page.getByLabel('Customer ID', { exact: true }).fill('customer-4821');
   await page.getByLabel('Trusted exception reference').fill('exc-4821');
@@ -185,4 +187,31 @@ test('local Vite proxy reaches the actual v1 backend health route', async ({ req
   }
   expect(health.demo_identity).toBe('Local demo reviewer');
   expect(health.workspace_id).toBeTruthy();
+});
+
+test('governed memory honors backend expiry and sends a version-bound revoke', async ({ page }) => {
+  await mockContract(page);
+  const entry = { memory_id: 'memory_browser', text: 'Synthetic governed exception', content_hash: 'test',
+    scope: { kind: 'global' as const }, candidate_id: 'candidate_test', version_id: 'version_test',
+    activated_at: '2026-11-14T16:00:00Z', expires_at: '2099-11-14T18:00:00Z' };
+  let revoked = false;
+  await page.route('**/api/memory/entries', route => route.fulfill({ json: {
+    version_id: revoked ? 'version_revoked' : 'version_test', evaluated_at: '2026-11-14T17:00:00Z', truncated: false,
+    items: revoked ? [] : [{ ...entry, availability: 'active' }, { ...entry, memory_id: 'expired_browser', text: 'Expired synthetic exception', availability: 'expired' }],
+  } satisfies DTO['MemoryEntries'] }));
+  await page.route('**/api/memory/entries/memory_browser/revoke', route => {
+    expect(route.request().postDataJSON()).toEqual({ base_version_id: 'version_test', reason: 'withdrawn' });
+    expect(route.request().headers()['idempotency-key']).toBeTruthy();
+    revoked = true;
+    return route.fulfill({ json: { version_id: 'version_revoked', event_id: 'event_test' } satisfies DTO['RevokeResult'] });
+  });
+  await page.goto('/');
+  const panel = page.getByRole('region', { name: 'Memory in force' });
+  await expect(panel.getByRole('button', { name: 'Revoke', exact: true })).toHaveCount(1);
+  await expect(panel).toContainText('No longer used');
+  await panel.getByRole('button', { name: 'Revoke', exact: true }).click();
+  await page.getByLabel('Reason for revoking memory_browser').fill('withdrawn');
+  await panel.getByRole('button', { name: 'Confirm revoke' }).click();
+  await expect(panel).toContainText('version_revoked');
+  await expect(panel).toContainText('No memories in this version');
 });
