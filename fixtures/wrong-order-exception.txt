@@ -1,0 +1,1 @@
+For verified customer customer-5902 on order 5902 only, use exception exc-4821 to refund 5000 cents to the original payment method without a return. This order-specific exception was approved by the support supervisor. Other policies remain in effect.
