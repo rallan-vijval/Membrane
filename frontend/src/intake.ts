@@ -127,7 +127,8 @@ interface PdfModule {
 
 async function fromPdf(file: File, base: string): Promise<Intake> {
   // pdf.js is vendored under public/vendor and fetched only when a PDF is dropped.
-  const lib = `${import.meta.env.BASE_URL}vendor/pdfjs/pdf.min.mjs`;
+  // A fully qualified URL avoids Vite adding ?import to this public asset.
+  const lib = new URL(`${import.meta.env.BASE_URL}vendor/pdfjs/pdf.min.mjs`, window.location.href).href;
   const pdfjs = (await import(/* @vite-ignore */ lib)) as PdfModule;
   pdfjs.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}vendor/pdfjs/pdf.worker.min.mjs`;
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
