@@ -171,12 +171,14 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
   const scopeValid = kind !== 'order' || (orderId.trim().length > 0 && customerId.trim().length > 0);
   const valid = editorReady && text.trim().length > 0 && scopeValid && ttlValid;
 
-  return (
-    <section className="panel" aria-labelledby="source-h">
-      <h2 id="source-h">1. What should the AI remember?</h2>
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const who = kind === 'global' ? 'Everyone' : kind === 'preference' ? 'Preference' : orderId.trim() ? `Order ${orderId.trim()} only` : 'One order';
+  const optionsSummary = `${who}, ${ttlValid ? `${minutes} min after approval` : 'lifetime not set'}`;
 
-      <div className="source-grid">
-      <div className="source-intake">
+  return (
+    <section className="panel intake" aria-labelledby="source-h">
+      <h2 id="source-h">What should the agent remember?</h2>
+
       {video ? (
         <div className="frame-picker">
           <video ref={videoRef} src={video.url} controls muted playsInline aria-label={`Preview of ${video.name}`} />
@@ -189,7 +191,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
       ) : (
         <div className={`dropzone${over ? ' dropzone-over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }}
              onDragLeave={() => setOver(false)} onDrop={onDrop}>
-          <p className="dropzone-title">{reading ? 'Reading the file…' : 'Drop a file here'}</p>
+          <p className="dropzone-title">{reading ? 'Reading the file…' : 'Drop a note here, or choose a file'}</p>
           <label className="field">
             <span>Source file (image, PDF, text or video; synthetic data only)</span>
             <input
@@ -206,70 +208,74 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
       )}
       {intakeProblem && <p className="intake-problem" role="status">{intakeProblem}</p>}
 
-      {source ? (
+      {source && (
         <div className="source">
-          {source.image_url && <img src={source.image_url} alt="The source as sent to the backend" />}
           {note && <p className="conversion">{note}</p>}
-          <div className="trust">
-            <span className={`pill ${source.provenance.trusted ? 'pill-ready' : 'pill-degraded'}`}>{source.provenance.trusted ? 'trusted' : 'untrusted source'}</span>{' '}
-            {source.provenance.trusted ? '' : 'It cannot grant authority or exceptions.'}
-          </div>
-          {source.quotation && <blockquote>{source.quotation}</blockquote>}
-          <details>
-            <summary>Full extracted text</summary>
-            <p className="mono">{source.extracted_text}</p>
-            <p className="meta">
-              {source.provenance.mime_type} · sha256 {source.provenance.sha256.slice(0, 12)}… · extraction model{' '}
-              {source.provenance.extraction_model ?? 'n/a'}
-            </p>
+          <details className="fold">
+            <summary>
+              <span>What was read from the file</span>
+              <span className={`pill ${source.provenance.trusted ? 'pill-ready' : 'pill-degraded'}`}>{source.provenance.trusted ? 'trusted' : 'untrusted source'}</span>
+            </summary>
+            <div className="fold-body">
+              {source.image_url && <img src={source.image_url} alt="The source as sent to the backend" />}
+              {!source.provenance.trusted && <p className="meta">An untrusted source cannot grant authority or exceptions.</p>}
+              {source.quotation && <blockquote>{source.quotation}</blockquote>}
+              <p className="mono">{source.extracted_text}</p>
+              <p className="meta">
+                {source.provenance.mime_type} · sha256 {source.provenance.sha256.slice(0, 12)}… · extraction model{' '}
+                {source.provenance.extraction_model ?? 'n/a'}
+              </p>
+            </div>
           </details>
         </div>
-      ) : (
-        <p className="empty">Add a source to extract a proposed memory. A PDF sends page 1; a video sends the one frame you pick.</p>
       )}
 
-      </div>
-      <div className="source-editor">
-      <label className="field">
+      <label className="field memory-field">
         <span>Proposed memory</span>
-        <textarea aria-label="Proposed memory" value={text} onChange={(e) => setText(e.target.value)} rows={3} disabled={disabled || !source || !editorReady} />
+        <textarea aria-label="Proposed memory" value={text} onChange={(e) => setText(e.target.value)} rows={2} disabled={disabled || !source || !editorReady}
+                  placeholder={source ? '' : 'Add a file and the proposed memory appears here.'} />
       </label>
-      <div className="row">
-        <label className="field">
-          <span>Scope</span>
-          <select value={kind} onChange={(e) => setKind(e.target.value as Scope['kind'])} disabled={disabled || !source}>
-            <option value="global">Global</option>
-            <option value="order">One order</option>
-            <option value="preference">Preference</option>
-          </select>
-        </label>
-        {kind === 'order' && (
-          <>
-            <label className="field">
-              <span>Order ID</span>
-              <input value={orderId} onChange={(e) => setOrderId(e.target.value)} disabled={disabled} />
-            </label>
-            <label className="field">
-              <span>Customer ID</span>
-              <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={disabled} />
-            </label>
-            <label className="field">
-              <span>Trusted exception reference</span>
-              <input value={exceptionId} onChange={(e) => setExceptionId(e.target.value)} disabled={disabled} placeholder="e.g. exc-4821" />
-            </label>
-          </>
-        )}
-      </div>
 
-      <label className="field">
-        <span>Lifetime after approval (minutes)</span>
-        <input type="number" inputMode="numeric" min={TTL_MIN_SECONDS / 60} max={TTL_MAX_SECONDS / 60} step={1} value={ttlMinutes}
-               onChange={(e) => setTtlMinutes(e.target.value)} disabled={disabled || !source} aria-describedby="ttl-help" />
-      </label>
-      <p className="meta" id="ttl-help">
-        {ttlValid ? 'The memory expires this long after it is approved, then stops being used.' : 'Enter a whole number of minutes from 1 to 1440.'}
-        {kind === 'order' && !scopeValid && ' An order scope needs both the order ID and the customer ID.'}
-      </p>
+      <details className="fold" open={optionsOpen || (!!source && (!scopeValid || !ttlValid))} onToggle={(e) => setOptionsOpen(e.currentTarget.open)}>
+        <summary><span>Who it applies to and how long it lasts</span><span className="fold-value">{optionsSummary}</span></summary>
+        <div className="fold-body">
+          <div className="row">
+            <label className="field">
+              <span>Scope</span>
+              <select value={kind} onChange={(e) => setKind(e.target.value as Scope['kind'])} disabled={disabled || !source}>
+                <option value="global">Global</option>
+                <option value="order">One order</option>
+                <option value="preference">Preference</option>
+              </select>
+            </label>
+            {kind === 'order' && (
+              <>
+                <label className="field">
+                  <span>Order ID</span>
+                  <input value={orderId} onChange={(e) => setOrderId(e.target.value)} disabled={disabled} />
+                </label>
+                <label className="field">
+                  <span>Customer ID</span>
+                  <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={disabled} />
+                </label>
+                <label className="field">
+                  <span>Trusted exception reference</span>
+                  <input value={exceptionId} onChange={(e) => setExceptionId(e.target.value)} disabled={disabled} placeholder="e.g. exc-4821" />
+                </label>
+              </>
+            )}
+            <label className="field">
+              <span>Lifetime after approval (minutes)</span>
+              <input type="number" inputMode="numeric" min={TTL_MIN_SECONDS / 60} max={TTL_MAX_SECONDS / 60} step={1} value={ttlMinutes}
+                     onChange={(e) => setTtlMinutes(e.target.value)} disabled={disabled || !source} aria-describedby="ttl-help" />
+            </label>
+          </div>
+          <p className="meta" id="ttl-help">
+            {ttlValid ? 'The memory expires this long after it is approved, then stops being used.' : 'Enter a whole number of minutes from 1 to 1440.'}
+            {kind === 'order' && !scopeValid && ' An order scope needs both the order ID and the customer ID.'}
+          </p>
+        </div>
+      </details>
 
       <div className="actions">
         {!candidate && (
@@ -282,25 +288,37 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
             Save changes for a new test
           </button>
         )}
+        {candidate && <span className="meta">Edit the memory or its scope, then save to test the new version.</span>}
       </div>
+    </section>
+  );
+}
 
-      {candidate && (
-        <dl className="facts">
-          <dt>Proposal</dt>
-          <dd><code>{candidate.id}</code> <Pill value={candidate.state} /></dd>
-          <dt>Scope</dt>
-          <dd>{scopeLabel(candidate.scope)}</dd>
-          <dt>Lifetime</dt>
-          <dd>{Math.round(candidate.ttl_seconds / 60)} min after approval</dd>
-          <dt>Lineage</dt>
-          <dd>
-            {candidate.parent_candidate_id ? <>revision of <code>{candidate.parent_candidate_id}</code></> : 'original'} · base{' '}
-            <code>{candidate.base_version_id}</code>
-          </dd>
-        </dl>
+/** The stored facts about the proposal under review; shown in the full breakdown. */
+export function CandidateFacts({ candidate, run }: { candidate: Candidate; run: Run | null }) {
+  return (
+    <section className="panel" aria-labelledby="facts-h">
+      <h2 id="facts-h">Proposed memory</h2>
+      <p className="facts-text">{candidate.text}</p>
+      <dl className="facts">
+        <dt>Proposal</dt>
+        <dd><code>{candidate.id}</code> <Pill value={candidate.state} /></dd>
+        <dt>Scope</dt>
+        <dd>{scopeLabel(candidate.scope)}</dd>
+        <dt>Lifetime</dt>
+        <dd>{Math.round(candidate.ttl_seconds / 60)} minutes once approved</dd>
+        <dt>Lineage</dt>
+        <dd>
+          {candidate.parent_candidate_id ? <>revision of <code>{candidate.parent_candidate_id}</code></> : 'original'} · base{' '}
+          <code>{candidate.base_version_id}</code>
+        </dd>
+      </dl>
+      {run && run.reasons.length > 0 && (
+        <>
+          <h3>{run.admission === 'eligible' ? 'Why it passed' : 'Why it was held back'}</h3>
+          <ul className="checks">{run.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+        </>
       )}
-      </div>
-      </div>
     </section>
   );
 }
@@ -328,7 +346,7 @@ function caseDiff(c: CaseResult) {
 }
 
 /** One line per side; if the two repetitions disagree, show both. */
-function sideSummary(c: CaseResult, side: Side): string {
+export function sideSummary(c: CaseResult, side: Side): string {
   const labels = c.executions.filter((e) => e.side === side).sort((a, b) => a.repetition - b.repetition).map(actionLabel);
   if (labels.length === 0) return 'pending';
   return new Set(labels).size === 1 ? labels[0] : labels.map((l, i) => `rep ${i + 1}: ${l}`).join(' / ');
@@ -399,14 +417,10 @@ interface RunPanelProps {
   candidate: Candidate | null;
   run: Run | null;
   voice: IntegrationHealth | null;
-  disabled: boolean;
-  onRun: () => void;
 }
 
-export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelProps) {
+export function RunPanel({ candidate, run, voice }: RunPanelProps) {
   const [open, setOpen] = useState<string | null>(null);
-  const running = run ? run.status === 'queued' || run.status === 'running' : false;
-  const canRun = candidate !== null && !running && ['staged', 'eligible', 'inconclusive'].includes(candidate.state);
   const reasons = new Map(run?.selection.map((s) => [s.fixture_id, s]) ?? []);
   const [filter, setFilter] = useState<CaseFilter | null>(null);
   const sorted = run ? [...run.cases].sort((x, y) => ORDER.indexOf(x.classification ?? 'inconclusive') - ORDER.indexOf(y.classification ?? 'inconclusive')) : [];
@@ -422,17 +436,8 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
 
   return (
     <section className="panel wide" aria-labelledby="run-h">
-      <h2 id="run-h">2. Test the proposed memory</h2>
-      <p className="hint">The same support requests are tried without and with this proposed memory, twice each. We check the attempted actions against fixed refund rules. Saving or testing does not put the memory into use.</p>
+      <h2 id="run-h">Every request, before and after</h2>
       <ExperimentSummary run={run} />
-      <div className="actions">
-        <button type="button" disabled={disabled || !canRun} onClick={onRun}>
-          {run ? 'Repeat this test' : 'Test this memory'}
-        </button>
-        {run && <Pill value={run.status} />}
-      </div>
-
-      {!candidate && <p className="empty">Save a proposed memory above before testing it.</p>}
 
       {run && (
         <>
@@ -457,8 +462,6 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
 
           {run.errors.length > 0 && <ul className="run-errors">{run.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
 
-          <h3 className="results-heading">3. What changed?</h3>
-          <p className="hint">Open a request to see the attempted actions and the rules they passed or failed.</p>
           <div className="case-filters" role="group" aria-label="Filter cases">
             {(['all', 'problems', 'changed', 'unchanged'] as CaseFilter[]).map((f) => (
               <button type="button" key={f} className={`filter filter-${f}`} aria-pressed={!attentionOnly && (filter ?? 'all') === f} disabled={counts[f] === 0 && f !== 'all'}
@@ -566,51 +569,34 @@ export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantin
   const eligible = candidate?.state === 'eligible' && run?.status === 'completed' && run.admission === 'eligible'
     && run.candidate_id === candidate.id && candidate.latest_run_id === run.id;
   const decided = candidate?.state === 'approved' || candidate?.state === 'quarantined';
+  if (!candidate) return null;
 
   return (
-    <section className="panel" aria-labelledby="decision-h">
-      <h2 id="decision-h">4. Put this memory into use?</h2>
-      {!candidate && <p className="empty">Nothing to decide yet.</p>}
-      {candidate && (
-        <>
-          <p>Memory status: <Pill value={candidate.state} /></p>
-          {run?.admission ? (
-            <div className={`verdict verdict-${run.admission}`}>
-              <strong>
-                {run.admission === 'eligible' && (candidate.state === 'approved' ? '✓ Approved and active' : '✓ Passed checks - review before approval')}
-                {run.admission === 'quarantine' && '✕ Rejected - inspect the failures'}
-                {run.admission === 'inconclusive' && '? Inconclusive: investigate or retest'}
-              </strong>
-              {run.reasons.length > 0 && (
-                <details className="verdict-reasons"><summary>{run.reasons.length === 1 ? 'Reason' : `${run.reasons.length} reasons`}</summary><ul>{run.reasons.map((r) => <li key={r}>{r}</li>)}</ul></details>
-              )}
-              {run.cases.length > 0 && (
-                <p className="tally">
-                  Of {run.cases.length} cases: {ORDER.map((k) => [run.cases.filter((c) => (c.classification ?? 'inconclusive') === k).length, CLASS_TEXT[k].toLowerCase()] as const)
-                    .filter(([n]) => n > 0).map(([n, label]) => `${n} ${label}`).join(', ')}.
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="hint">Test the proposed memory above before making a decision.</p>
-          )}
-
-          <div className="actions stack">
-            <button type="button" disabled={disabled || !eligible} onClick={onApprove}>Approve for use</button>
-            {!eligible && candidate.state !== 'approved' && (
-              <p className="meta">Approval is available only after this exact version passes the required checks.</p>
-            )}
-            {!decided && <label className="field">
+    <section className="panel decision" aria-labelledby="decision-h">
+      <h2 id="decision-h">Put this memory into use?</h2>
+      <div className="actions">
+        <button type="button" disabled={disabled || !eligible} onClick={onApprove}>Approve for use</button>
+        <span className="meta">
+          {candidate.state === 'approved' ? `In use. It expires ${Math.round(candidate.ttl_seconds / 60)} minutes after approval and can be revoked sooner.`
+            : eligible ? `It will expire ${Math.round(candidate.ttl_seconds / 60)} minutes after approval. You can revoke it sooner.`
+            : 'Approval stays off until this exact version passes its test.'}
+        </span>
+      </div>
+      {!decided && (
+        <details className="fold">
+          <summary><span>Reject this memory</span></summary>
+          <div className="fold-body">
+            <label className="field">
               <span>Reason for rejecting</span>
-              <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. waives returns for every VIP" disabled={disabled || decided} />
-            </label>}
-            {!decided && <button type="button" className="danger" disabled={disabled || reason.trim().length === 0}
-                    onClick={() => onQuarantine(reason.trim())}>
-              Reject memory
-            </button>}
-            <p className="meta">To narrow the memory, edit the proposal above and save it for a new test. Earlier results cannot approve an edited memory.</p>
+              <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. waives returns for every VIP" disabled={disabled} />
+            </label>
+            <div className="actions">
+              <button type="button" className="danger" disabled={disabled || reason.trim().length === 0} onClick={() => onQuarantine(reason.trim())}>
+                Reject memory
+              </button>
+            </div>
           </div>
-        </>
+        </details>
       )}
     </section>
   );

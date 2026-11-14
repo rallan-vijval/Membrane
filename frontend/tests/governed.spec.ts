@@ -90,6 +90,7 @@ async function mock(page: Page, options: Options = {}) {
 async function stage(page: Page, minutes?: string) {
   await page.getByLabel(FILE_LABEL).setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('All VIP customers can keep refunded items.');
+  await page.getByText('Who it applies to and how long it lasts').click();
   await page.getByLabel('Scope').selectOption('global');
   if (minutes) await page.getByLabel('Lifetime after approval (minutes)').fill(minutes);
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
@@ -100,6 +101,7 @@ test('lifetime is sent as ttl_seconds and an order scope needs its customer', as
   await page.goto('/');
   await page.getByLabel(FILE_LABEL).setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('Order 4821 only.');
+  await page.getByText('Who it applies to and how long it lasts').click();
   await page.getByLabel('Scope').selectOption('order');
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
   await page.getByLabel('Customer ID', { exact: true }).fill(''); // the extraction may have proposed one
@@ -155,6 +157,7 @@ test('run details show retrieved memory apart from test selection, with the cand
   await page.goto('/');
   await stage(page);
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
+  await page.getByRole('button', { name: 'Open the full breakdown' }).click();
   await page.getByRole('button', { name: /Synthetic VIP case/ }).click();
   const evidence = page.locator('.retrieval');
   await expect(evidence).toContainText('exact scope');
@@ -169,6 +172,7 @@ test('a run without retrieval records says provenance is unavailable', async ({ 
   await page.goto('/');
   await stage(page);
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
+  await page.getByRole('button', { name: 'Open the full breakdown' }).click();
   await page.getByRole('button', { name: /Synthetic VIP case/ }).click();
   await expect(page.locator('.retrieval')).toContainText('Retrieval provenance unavailable');
 });

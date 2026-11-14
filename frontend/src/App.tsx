@@ -11,11 +11,11 @@ import {
   type Scope,
   type Source,
 } from './api';
-import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
+import { CandidateFacts, DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
 import { ActiveTaskPanel, MemoryPanel } from './governed';
 import { describeError } from './util';
 import { QuarantineBox } from './quarantine';
-import { WorkflowGuide } from './workflow';
+import { ChangeHighlight, KeyPanel, verdictOf } from './summary';
 
 const POLL_MS = 2000;
 
@@ -31,7 +31,7 @@ function writeUrl(candidateId: string | null, runId: string | null) {
   if (runId) p.set('run', runId);
   else p.delete('run');
   const query = p.toString();
-  window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname);
+  window.history.replaceState(window.history.state, '', `${query ? `?${query}` : window.location.pathname}${window.location.hash}`);
 }
 
 export function App() {
@@ -48,6 +48,28 @@ export function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const alive = useRef(true);
+  // The full breakdown is its own view at #breakdown, so the browser's Back button returns to the summary too.
+  const [detail, setDetail] = useState(() => window.location.hash === '#breakdown');
+  const openedHere = useRef(false);
+  useEffect(() => {
+    const sync = () => { setDetail(window.location.hash === '#breakdown'); window.scrollTo({ top: 0 }); };
+    window.addEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
+  }, []);
+  const leaveBreakdown = useCallback(() => {
+    if (window.location.hash !== '#breakdown') { setDetail(false); return; }
+    if (openedHere.current) { openedHere.current = false; window.history.back(); return; }
+    // Opened from a shared link or a reload: there is no summary entry to go back to, so replace this one.
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    setDetail(false);
+    window.scrollTo({ top: 0 });
+  }, []);
+  const openBreakdown = () => {
+    if (window.location.hash === '#breakdown') { setDetail(true); return; }
+    openedHere.current = true;
+    window.location.hash = 'breakdown';
+  };
 
   const fail = useCallback((err: unknown) => {
     if (alive.current) setError(describeError(err));
@@ -104,6 +126,11 @@ export function App() {
   useEffect(() => {
     if (hydrated) writeUrl(candidate?.id ?? null, run?.id ?? null);
   }, [hydrated, candidate?.id, run?.id]);
+
+  // A breakdown needs a run. When the run goes away (new upload, revision), return to the summary.
+  useEffect(() => {
+    if (hydrated && !run && window.location.hash === '#breakdown') leaveBreakdown();
+  }, [hydrated, run, leaveBreakdown]);
 
   // Poll a run every two seconds until it reaches a terminal status or the page goes away.
   const runId = run?.id ?? null;
@@ -219,6 +246,9 @@ export function App() {
       window.scrollTo({ top: 0 });
     });
 
+  const showBreakdown = detail && run !== null;
+  const verdict = verdictOf(candidate, run);
+
   return (
     <div className="app">
       {api.mode === 'synthetic' && (
@@ -231,7 +261,6 @@ export function App() {
         <button type="button" aria-pressed={view === 'review'} onClick={() => setView('review')}>Review a proposed memory</button>
         <button type="button" aria-pressed={view === 'live'} onClick={() => setView('live')}>Approved memories and current AI</button>
       </nav>
-      <div hidden={view !== 'review'}><WorkflowGuide source={source} candidate={candidate} run={run} /></div>
       {error && (
         <div className="error" role="alert">
           <span>{error}</span>
@@ -239,19 +268,36 @@ export function App() {
         </div>
       )}
       {busy && <div className="busy" role="status">{busy}</div>}
-      <main className="columns review-flow" hidden={view !== 'review'}>
-        <SourcePanel
-          source={source}
-          candidate={candidate}
-          disabled={busy !== null}
-          onUpload={onUpload}
-          onStage={onStage}
-          onRevise={onRevise}
-        />
-        <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
-        <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
-        <QuarantineBox refreshKey={`${candidate?.id ?? ''}:${candidate?.state ?? ''}:${run?.status ?? ''}`} currentId={candidate?.id ?? null} onOpen={onOpenCandidate} />
-      </main>
+      {/* Kept mounted while the breakdown is open, so unsaved edits and open sections survive the round trip. */}
+      {(
+        <div role={showBreakdown ? undefined : 'main'} className="review-flow summary-flow" hidden={view !== 'review' || showBreakdown}>
+          <SourcePanel
+            source={source}
+            candidate={candidate}
+            disabled={busy !== null}
+            onUpload={onUpload}
+            onStage={onStage}
+            onRevise={onRevise}
+          />
+          <KeyPanel candidate={candidate} run={run} disabled={busy !== null} onRun={onRun} onOpen={openBreakdown} />
+          <ChangeHighlight run={run} />
+          <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
+          <QuarantineBox refreshKey={`${candidate?.id ?? ''}:${candidate?.state ?? ''}:${run?.status ?? ''}`} currentId={candidate?.id ?? null} onOpen={onOpenCandidate} />
+        </div>
+      )}
+      {showBreakdown && (
+        <main className="review-flow breakdown" hidden={view !== 'review'} aria-label="Full breakdown">
+          <div className={`breakdown-head key-${verdict.tone}`}>
+            <button type="button" className="secondary back" onClick={leaveBreakdown}>
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
+              Back to summary
+            </button>
+            <p className="breakdown-verdict"><strong>{verdict.title}</strong> {verdict.line}</p>
+          </div>
+          <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} />
+          {candidate && <CandidateFacts candidate={candidate} run={run} />}
+        </main>
+      )}
       <section hidden={view !== 'live'} aria-label="Approved memory workspace"><div className="live-divider"><span>AFTER THE CHECKPOINT</span><h2>Memory in use</h2><p>Inspect what is active, or try a single request. These live trials do not count as admission evidence.</p></div>
       <div className="governed">
         <MemoryPanel memory={memory} problem={memoryProblem} disabled={busy !== null} onRevoke={onRevoke} onRefresh={() => void refreshShared()} />

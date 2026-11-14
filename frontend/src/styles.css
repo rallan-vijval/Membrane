@@ -404,3 +404,56 @@ td.pore span { background: var(--surface); }
 button:disabled { background: #24272c; border-color: #24272c; color: #6c7480; opacity: 1; }
 button.danger:disabled, button.secondary:disabled { background: transparent; border-color: #33373e; color: #6c7480; }
 .filter:disabled, .workspace-tabs button:disabled { background: transparent; border-color: #2d3138; color: #565d68; }
+
+/* ---- Simple page: input, one lock, one example. The detail lives in the breakdown view. ---- */
+.summary-flow { max-width: 900px; display: grid; gap: 20px; padding: 16px 16px 8px; }
+.breakdown { max-width: 1160px; display: grid; gap: 20px; padding: 16px 16px 8px; }
+.panel h2 { border-bottom: 0; padding-bottom: 0; }
+.intake .dropzone { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 16px 18px; margin-top: 14px; }
+.intake .dropzone-title { margin: 0; font-weight: 600; }
+.intake .dropzone .field { margin-top: 0; }
+.memory-field textarea { font-size: 17px; }
+.fold { border: 1px solid var(--rule); border-radius: 10px; margin-top: 12px; }
+.fold > summary { min-height: 44px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 500; list-style: none; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary > span:first-child::before { content: "+"; display: inline-block; width: 18px; color: var(--accent); font-weight: 700; }
+.fold[open] > summary > span:first-child::before { content: "\2212"; }
+.fold-value { color: var(--ink-soft); font-size: 13px; font-weight: 400; }
+.fold-body { padding: 0 14px 14px; }
+.fold-body .field:first-child, .fold-body .row .field { margin-top: 4px; }
+.source { margin-top: 0; }
+
+.key-panel { display: grid; justify-items: center; gap: 12px; text-align: center; padding: 12px 0 4px; }
+.key { width: 148px; height: 148px; border-radius: 50%; padding: 0; display: grid; place-items: center; background: var(--raised); border: 3px solid #4a505a; color: var(--ink-soft); transition: transform 0.15s ease; }
+.key:hover:not(:disabled) { background: var(--raised); transform: scale(1.04); }
+.key:disabled { background: var(--raised); border-color: #33373e; color: #565d68; }
+.key-held .key { background: #1d1113; border-color: var(--block); color: #ff8a8a; box-shadow: 0 0 0 10px rgba(255, 97, 97, 0.1); }
+.key-safe .key { background: #0f1b17; border-color: var(--pass); color: var(--pass); box-shadow: 0 0 0 10px rgba(60, 207, 149, 0.1); }
+.key-unsure .key { border-color: var(--hold); color: var(--hold); }
+.key-busy .key { border-color: var(--accent); color: var(--accent); animation: key-pulse 1.4s ease-in-out infinite; }
+@keyframes key-pulse { 50% { box-shadow: 0 0 0 12px rgba(255, 122, 26, 0.12); } }
+@media (prefers-reduced-motion: reduce) { .key-busy .key { animation: none; } .key { transition: none; } }
+.key-verdict { font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
+.key-held .key-verdict, .key-held .breakdown-verdict strong { color: #ff8a8a; }
+.key-safe .key-verdict, .key-safe .breakdown-verdict strong { color: var(--pass); }
+.key-unsure .key-verdict, .key-unsure .breakdown-verdict strong { color: var(--hold); }
+.key-line { font-size: 17px; max-width: 560px; color: var(--ink); }
+.key-panel .progress { width: min(420px, 100%); }
+.key-actions { justify-content: center; margin: 4px 0 0; }
+
+.change-request { font-size: 16px; margin: 10px 0 14px; }
+.change-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.change-side { display: grid; gap: 6px; align-content: start; padding: 16px; border: 1px solid var(--rule); border-radius: 12px; background: #111315; }
+.change-side strong { font-size: 17px; }
+.change-label, .change-note { font-size: 13px; color: var(--ink-soft); }
+.change-bad { background: #1d1113; border-color: rgba(255, 97, 97, 0.45); }
+.change-bad .change-note { color: #ff8a8a; }
+.change-good { background: #0f1b17; border-color: rgba(60, 207, 149, 0.45); }
+.change-good .change-note { color: var(--pass); }
+
+.decision .actions { margin-top: 12px; }
+.breakdown-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.breakdown-verdict { font-size: 16px; }
+.breakdown-verdict strong { font-size: 18px; margin-right: 8px; }
+.facts-text { font-size: 17px; margin: 10px 0; }

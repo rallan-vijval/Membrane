@@ -106,14 +106,18 @@ async function reachEligible(page: Page) {
   await page.goto('/');
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('All VIP customers can keep refunded items.');
+  await page.getByText('Who it applies to and how long it lasts').click();
   await page.getByLabel('Scope').selectOption('global');
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
-  await expect(page.getByText('Rejected - inspect the failures')).toBeVisible();
+  await expect(page.locator('.key-verdict')).toHaveText('Quarantine');
   await expect(page.getByRole('button', { name: 'Approve for use' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Open the full breakdown' }).click();
   await page.getByRole('button', { name: /Synthetic policy case 0/ }).click();
   await expect(page.getByText('Tool guard blocked it').first()).toBeVisible();
   await expect(page.getByText('Raw model response').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Back to summary' }).click();
+  await expect(page).not.toHaveURL(/#breakdown/);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill(narrowText);
   await page.getByLabel('Scope').selectOption('order');
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
@@ -121,7 +125,7 @@ async function reachEligible(page: Page) {
   await page.getByLabel('Trusted exception reference').fill('exc-4821');
   await page.getByRole('button', { name: 'Save changes for a new test' }).click();
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
-  await expect(page.getByText('Passed checks - review before approval')).toBeVisible();
+  await expect(page.locator('.key-verdict')).toHaveText('Safe to approve');
 }
 
 test('wire-contract broad → revision → approval → reload; desktop and mobile', async ({ page }) => {
