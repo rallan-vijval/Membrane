@@ -20,7 +20,7 @@ class Store:
             uri = self.settings.mongodb_uri.get_secret_value()
             if not uri or "<" in uri:
                 raise Problem("database_unavailable", "Set MONGODB_URI in the local .env file", 503)
-            self.client = MongoClient(uri, serverSelectionTimeoutMS=4000, connectTimeoutMS=4000, tz_aware=True)
+            self.client = MongoClient(uri, serverSelectionTimeoutMS=10000, connectTimeoutMS=10000, tz_aware=True)
             self._db = self.client[self.settings.mongodb_db]
         return self._db
 

@@ -30,3 +30,8 @@ Integrated remote main 17eb393. Retained frontend/render.yaml as an explicitly s
 Simplified .env.example into database, DeepSeek, Voyage, limits and optional-service sections; removed legacy static-demo variables from the active template. The ignored local .env was normalized without changing supported values, and its original was preserved in ignored .env.before-cleanup. No credentials committed. Local live test remains blocked by an unfinished MongoDB URI and missing DeepSeek/Voyage keys.
 
 Verification: 96 backend tests passed, 2 live checks skipped; pip check and TypeScript/Vite build passed. All 14 browser tests passed with the canonical checkout/configuration.
+
+
+## Live credential test
+
+Initialized the v2 workspace and both search indexes. Corrected bounded Atlas connection timeout and strict extraction/decision instructions after observing live failures. Full results, successful probes and the unsuccessful original paired admission workflow are recorded in live-test-results.md. No memory activated.
