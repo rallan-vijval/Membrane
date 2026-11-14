@@ -14,7 +14,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .common import Problem
 from .config import Settings
 from .models import (ApproveIn, Audio, AudioIn, Candidate, CandidateIn, CandidateList, ErrorResponse,
-                     Health, History, QuarantineIn, ReviseIn, Run, RunAccepted, Source, Version)
+                     Health, History, QuarantineIn, ReviseIn, Run, RunAccepted, Source, Version,
+                     MemoryEntries, RevokeIn, RevokeResult, TaskOptions, ExecuteActiveIn, ActiveExecution)
 from .provider import Provider
 from .runner import Worker
 from .service import Service
@@ -172,6 +173,26 @@ def create_app(settings=None, store=None, provider=None):
     @app.get("/api/history", response_model=History)
     def history():
         return service.history()
+
+    @app.get("/api/memory/entries", response_model=MemoryEntries)
+    def memory_entries():
+        return service.memory_entries()
+
+    @app.post("/api/memory/entries/{memory_id}/revoke", response_model=RevokeResult)
+    def revoke(memory_id: str, body: RevokeIn, idempotency_key: Key):
+        return service.revoke(memory_id, body, idempotency_key)
+
+    @app.get("/api/tasks", response_model=TaskOptions)
+    def tasks():
+        return service.tasks()
+
+    @app.post("/api/agent/tasks/{fixture_id}/execute", response_model=ActiveExecution, status_code=201)
+    def execute_active(fixture_id: str, body: ExecuteActiveIn):
+        return service.execute_active(fixture_id, body)
+
+    @app.get("/api/agent/executions/{execution_id}", response_model=ActiveExecution)
+    def active_execution(execution_id: str):
+        return service.active_execution(execution_id)
 
     @app.post("/api/runs/{run_id}/cases/{case_id}/audio", response_model=Audio)
     def audio(run_id: str, case_id: str, body: AudioIn):

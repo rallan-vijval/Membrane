@@ -758,6 +758,282 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/memory/entries:
+    get:
+      summary: Memory Entries
+      operationId: memory_entries_api_memory_entries_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryEntries'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/memory/entries/{memory_id}/revoke:
+    post:
+      summary: Revoke
+      operationId: revoke_api_memory_entries__memory_id__revoke_post
+      parameters:
+      - name: memory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Memory Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokeResult'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/tasks:
+    get:
+      summary: Tasks
+      operationId: tasks_api_tasks_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskOptions'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/agent/tasks/{fixture_id}/execute:
+    post:
+      summary: Execute Active
+      operationId: execute_active_api_agent_tasks__fixture_id__execute_post
+      parameters:
+      - name: fixture_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Fixture Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteActiveIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveExecution'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/agent/executions/{execution_id}:
+    get:
+      summary: Active Execution
+      operationId: active_execution_api_agent_executions__execution_id__get
+      parameters:
+      - name: execution_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Execution Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveExecution'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
   /api/runs/{run_id}/cases/{case_id}/audio:
     post:
       summary: Audio
@@ -876,6 +1152,49 @@ paths:
           description: Service Unavailable
 components:
   schemas:
+    ActiveExecution:
+      properties:
+        execution_id:
+          type: string
+          title: Execution Id
+        created_at:
+          type: string
+          title: Created At
+        version_id:
+          type: string
+          title: Version Id
+        fixture_id:
+          type: string
+          title: Fixture Id
+        retrieval:
+          $ref: '#/components/schemas/MemoryRetrieval'
+        execution:
+          $ref: '#/components/schemas/Execution'
+        config:
+          additionalProperties: true
+          type: object
+          title: Config
+        usage:
+          additionalProperties: true
+          type: object
+          title: Usage
+        trace_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Url
+      additionalProperties: false
+      type: object
+      required:
+      - execution_id
+      - created_at
+      - version_id
+      - fixture_id
+      - retrieval
+      - execution
+      - config
+      - usage
+      title: ActiveExecution
     ApproveIn:
       properties:
         run_id:
@@ -1011,6 +1330,12 @@ components:
           - type: string
           - type: 'null'
           title: Latest Run Id
+        ttl_seconds:
+          type: integer
+          maximum: 86400.0
+          minimum: 60.0
+          title: Ttl Seconds
+          default: 3600
       additionalProperties: false
       type: object
       required:
@@ -1039,6 +1364,12 @@ components:
         base_version_id:
           type: string
           title: Base Version Id
+        ttl_seconds:
+          type: integer
+          maximum: 86400.0
+          minimum: 60.0
+          title: Ttl Seconds
+          default: 3600
       additionalProperties: false
       type: object
       required:
@@ -1153,6 +1484,16 @@ components:
       required:
       - error
       title: ErrorResponse
+    ExecuteActiveIn:
+      properties:
+        base_version_id:
+          type: string
+          title: Base Version Id
+      additionalProperties: false
+      type: object
+      required:
+      - base_version_id
+      title: ExecuteActiveIn
     Execution:
       properties:
         side:
@@ -1208,6 +1549,11 @@ components:
         latency_ms:
           type: integer
           title: Latency Ms
+        trace_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Url
       additionalProperties: false
       type: object
       required:
@@ -1233,6 +1579,14 @@ components:
         search:
           $ref: '#/components/schemas/ComponentHealth'
         voice:
+          $ref: '#/components/schemas/ComponentHealth'
+        embeddings:
+          $ref: '#/components/schemas/ComponentHealth'
+        memory_search:
+          $ref: '#/components/schemas/ComponentHealth'
+        tracing:
+          $ref: '#/components/schemas/ComponentHealth'
+        vision:
           $ref: '#/components/schemas/ComponentHealth'
         demo_identity:
           type: string
@@ -1272,6 +1626,106 @@ components:
       - events
       - truncated
       title: History
+    MemoryEntries:
+      properties:
+        version_id:
+          type: string
+          title: Version Id
+        evaluated_at:
+          type: string
+          title: Evaluated At
+        items:
+          items:
+            $ref: '#/components/schemas/MemoryEntryView'
+          type: array
+          title: Items
+        truncated:
+          type: boolean
+          title: Truncated
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - version_id
+      - evaluated_at
+      - items
+      title: MemoryEntries
+    MemoryEntryView:
+      properties:
+        memory_id:
+          type: string
+          title: Memory Id
+        text:
+          type: string
+          title: Text
+        content_hash:
+          type: string
+          title: Content Hash
+        scope:
+          $ref: '#/components/schemas/Scope'
+        candidate_id:
+          type: string
+          title: Candidate Id
+        version_id:
+          type: string
+          title: Version Id
+        activated_at:
+          type: string
+          title: Activated At
+        expires_at:
+          type: string
+          title: Expires At
+        availability:
+          type: string
+          enum:
+          - active
+          - expired
+          title: Availability
+      additionalProperties: false
+      type: object
+      required:
+      - memory_id
+      - text
+      - content_hash
+      - scope
+      - candidate_id
+      - version_id
+      - activated_at
+      - expires_at
+      - availability
+      title: MemoryEntryView
+    MemoryRetrieval:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        retrieval_at:
+          type: string
+          title: Retrieval At
+        profile_id:
+          type: string
+          title: Profile Id
+        base_version_id:
+          type: string
+          title: Base Version Id
+        entries:
+          items:
+            $ref: '#/components/schemas/RetrievedMemory'
+          type: array
+          title: Entries
+        usage:
+          additionalProperties: true
+          type: object
+          title: Usage
+      additionalProperties: false
+      type: object
+      required:
+      - case_id
+      - retrieval_at
+      - profile_id
+      - base_version_id
+      - entries
+      title: MemoryRetrieval
     QuarantineIn:
       properties:
         reason:
@@ -1284,6 +1738,56 @@ components:
       required:
       - reason
       title: QuarantineIn
+    RetrievedMemory:
+      properties:
+        memory_id:
+          type: string
+          title: Memory Id
+        text:
+          type: string
+          title: Text
+        content_hash:
+          type: string
+          title: Content Hash
+        scope:
+          $ref: '#/components/schemas/Scope'
+        candidate_id:
+          type: string
+          title: Candidate Id
+        version_id:
+          type: string
+          title: Version Id
+        activated_at:
+          type: string
+          title: Activated At
+        expires_at:
+          type: string
+          title: Expires At
+        reason:
+          type: string
+          enum:
+          - exact_scope
+          - semantic
+          title: Reason
+        semantic_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Semantic Score
+      additionalProperties: false
+      type: object
+      required:
+      - memory_id
+      - text
+      - content_hash
+      - scope
+      - candidate_id
+      - version_id
+      - activated_at
+      - expires_at
+      - reason
+      - semantic_score
+      title: RetrievedMemory
     ReviewEvent:
       properties:
         event_id:
@@ -1314,6 +1818,16 @@ components:
         reason:
           type: string
           title: Reason
+        memory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Memory Id
+        base_version_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Base Version Id
       additionalProperties: false
       type: object
       required:
@@ -1335,12 +1849,48 @@ components:
           title: Text
         scope:
           $ref: '#/components/schemas/Scope'
+        ttl_seconds:
+          type: integer
+          maximum: 86400.0
+          minimum: 60.0
+          title: Ttl Seconds
+          default: 3600
       additionalProperties: false
       type: object
       required:
       - text
       - scope
       title: ReviseIn
+    RevokeIn:
+      properties:
+        base_version_id:
+          type: string
+          title: Base Version Id
+        reason:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - base_version_id
+      - reason
+      title: RevokeIn
+    RevokeResult:
+      properties:
+        version_id:
+          type: string
+          title: Version Id
+        event_id:
+          type: string
+          title: Event Id
+      additionalProperties: false
+      type: object
+      required:
+      - version_id
+      - event_id
+      title: RevokeResult
     Run:
       properties:
         run_id:
@@ -1416,6 +1966,16 @@ components:
         candidate_hash:
           type: string
           title: Candidate Hash
+        memory_retrieval:
+          items:
+            $ref: '#/components/schemas/MemoryRetrieval'
+          type: array
+          title: Memory Retrieval
+        trace_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Url
       additionalProperties: false
       type: object
       required:
@@ -1555,6 +2115,36 @@ components:
       - proposed_scope
       - provenance
       title: Source
+    TaskOption:
+      properties:
+        fixture_id:
+          type: string
+          title: Fixture Id
+        description:
+          type: string
+          title: Description
+      additionalProperties: false
+      type: object
+      required:
+      - fixture_id
+      - description
+      title: TaskOption
+    TaskOptions:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/TaskOption'
+          type: array
+          title: Items
+        truncated:
+          type: boolean
+          title: Truncated
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - truncated
+      title: TaskOptions
     Version:
       properties:
         version_id:

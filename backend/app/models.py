@@ -1,7 +1,7 @@
 """Public v1 API DTOs. OpenAPI is generated from these models, not hand-maintained."""
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DTO(BaseModel):
@@ -14,17 +14,28 @@ class Scope(DTO):
     customer_id: str | None = None
     exception_id: str | None = None
 
+    @model_validator(mode="after")
+    def exact_scope(self):
+        if self.kind == "order":
+            if not self.order_id or not self.order_id.strip() or not self.customer_id or not self.customer_id.strip():
+                raise ValueError("Order scope requires exact order and customer IDs")
+        elif any(v is not None for v in (self.order_id, self.customer_id, self.exception_id)):
+            raise ValueError("Global/preference scope cannot carry order authority")
+        return self
+
 
 class CandidateIn(DTO):
     source_id: str
     text: str = Field(min_length=1, max_length=8000)
     scope: Scope
     base_version_id: str
+    ttl_seconds: int = Field(default=3600, ge=60, le=86400, strict=True)
 
 
 class ReviseIn(DTO):
     text: str = Field(min_length=1, max_length=8000)
     scope: Scope
+    ttl_seconds: int = Field(default=3600, ge=60, le=86400, strict=True)
 
 
 class ApproveIn(DTO):
@@ -51,6 +62,10 @@ class Health(DTO):
     model: ComponentHealth
     search: ComponentHealth
     voice: ComponentHealth
+    embeddings: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="unavailable", reason="Embedding access unverified"))
+    memory_search: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="disabled", reason="Governed memory is not enabled"))
+    tracing: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="disabled", reason="Optional tracing disabled"))
+    vision: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="unavailable", reason="Vision access unverified"))
     demo_identity: str = "Local demo reviewer"
     workspace_id: str
 
@@ -83,6 +98,7 @@ class Candidate(DTO):
     content_hash: str
     status: CandidateStatus
     latest_run_id: str | None = None
+    ttl_seconds: int = Field(default=3600, ge=60, le=86400)
 
 
 class CandidateList(DTO):
@@ -109,6 +125,8 @@ class ReviewEvent(DTO):
     run_id: str | None
     version_id: str | None
     reason: str
+    memory_id: str | None = None
+    base_version_id: str | None = None
 
 
 class History(DTO):
@@ -142,6 +160,7 @@ class Execution(DTO):
     input_tokens: int
     output_tokens: int
     latency_ms: int
+    trace_url: str | None = None
 
 
 class SelectedCase(DTO):
@@ -156,6 +175,78 @@ class CaseEvidence(DTO):
     case_id: str
     classification: Literal["unchanged-safe", "intended-safe-change", "new-policy-violation", "pre-existing-violation", "inconclusive"]
     executions: list[Execution]
+
+
+class MemoryEntry(DTO):
+    memory_id: str
+    text: str
+    content_hash: str
+    scope: Scope
+    candidate_id: str
+    version_id: str
+    activated_at: str
+    expires_at: str
+
+
+class MemoryEntryView(MemoryEntry):
+    availability: Literal["active", "expired"]
+
+
+class MemoryEntries(DTO):
+    version_id: str
+    evaluated_at: str
+    items: list[MemoryEntryView]
+    truncated: bool = False
+
+
+class RetrievedMemory(MemoryEntry):
+    reason: Literal["exact_scope", "semantic"]
+    semantic_score: float | None
+
+
+class MemoryRetrieval(DTO):
+    case_id: str
+    retrieval_at: str
+    profile_id: str
+    base_version_id: str
+    entries: list[RetrievedMemory]
+    usage: dict[str, Any] = Field(default_factory=dict)
+
+
+class RevokeIn(DTO):
+    base_version_id: str
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class RevokeResult(DTO):
+    version_id: str
+    event_id: str
+
+
+class TaskOption(DTO):
+    fixture_id: str
+    description: str
+
+
+class TaskOptions(DTO):
+    items: list[TaskOption]
+    truncated: bool
+
+
+class ExecuteActiveIn(DTO):
+    base_version_id: str
+
+
+class ActiveExecution(DTO):
+    execution_id: str
+    created_at: str
+    version_id: str
+    fixture_id: str
+    retrieval: MemoryRetrieval
+    execution: Execution
+    config: dict[str, Any]
+    usage: dict[str, Any]
+    trace_url: str | None = None
 
 
 class Run(DTO):
@@ -175,6 +266,8 @@ class Run(DTO):
     live: bool = True
     base_version_id: str
     candidate_hash: str
+    memory_retrieval: list[MemoryRetrieval] = Field(default_factory=list)
+    trace_url: str | None = None
 
 
 class RunAccepted(DTO):
