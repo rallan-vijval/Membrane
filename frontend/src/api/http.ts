@@ -6,6 +6,9 @@ import {
   type Scope,
   type Side,
 } from './types';
+import type { components } from './generated';
+import { activeFromWire, candidateFromWire, healthFromWire, historyFromWire, runFromWire, sourceFromWire } from './normalize';
+type DTO = components['schemas'];
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
@@ -23,12 +26,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
-const json = (body: unknown, idempotent = false): RequestInit => ({
+const reviewerKeys = new Map<string, string>();
+const reviewerKey = (identity: string) => {
+  if (!reviewerKeys.has(identity)) reviewerKeys.set(identity, crypto.randomUUID());
+  return reviewerKeys.get(identity)!;
+};
+const json = (body: unknown, reviewIdentity?: string): RequestInit => ({
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    // Reviewer actions must be safe to retry: one key per click.
-    ...(idempotent ? { 'Idempotency-Key': crypto.randomUUID() } : {}),
+    // Retrying the same decision after a network failure reuses its key.
+    ...(reviewIdentity ? { 'Idempotency-Key': reviewerKey(reviewIdentity) } : {}),
   },
   body: JSON.stringify(body),
 });
@@ -38,25 +46,26 @@ const id = (value: string) => encodeURIComponent(value);
 /** The real backend. It never substitutes synthetic data: failures surface as errors. */
 export const httpApi: MembraneApi = {
   mode: 'real',
-  health: () => request('/health'),
+  health: () => request<DTO['Health']>('/health').then(healthFromWire),
   uploadSource: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return request('/sources', { method: 'POST', body: form });
+    return request<DTO['Source']>('/sources', { method: 'POST', body: form }).then(sourceFromWire);
   },
-  getSource: (sourceId: string) => request(`/sources/${id(sourceId)}`),
-  createCandidate: (input) => request('/candidates', json(input)),
-  getCandidate: (candidateId: string) => request(`/candidates/${id(candidateId)}`),
+  getSource: (sourceId: string) => request<DTO['Source']>(`/sources/${id(sourceId)}`).then(sourceFromWire),
+  createCandidate: (input) => request<DTO['Candidate']>('/candidates', json(input)).then(candidateFromWire),
+  getCandidate: (candidateId: string) => request<DTO['Candidate']>(`/candidates/${id(candidateId)}`).then(candidateFromWire),
   startRun: (candidateId: string) => request(`/candidates/${id(candidateId)}/runs`, json({})),
-  getRun: (runId: string) => request(`/runs/${id(runId)}`),
+  getRun: (runId: string) => request<DTO['Run']>(`/runs/${id(runId)}`).then(runFromWire),
   revise: (candidateId: string, input: { text: string; scope: Scope }) =>
-    request(`/candidates/${id(candidateId)}/revise`, json(input, true)),
+    request<DTO['Candidate']>(`/candidates/${id(candidateId)}/revise`, json(input)).then(candidateFromWire),
   approve: (candidateId: string, runId: string) =>
-    request(`/candidates/${id(candidateId)}/approve`, json({ run_id: runId }, true)),
+    request<DTO['Candidate']>(`/candidates/${id(candidateId)}/approve`, json({ run_id: runId,
+      reason: 'Reviewer approved the exact candidate after reviewing paired evidence' }, `approve:${candidateId}:${runId}`)).then(candidateFromWire),
   quarantine: (candidateId: string, reason: string) =>
-    request(`/candidates/${id(candidateId)}/quarantine`, json({ reason }, true)),
-  activeMemory: () => request('/memory/active'),
-  history: () => request('/history'),
+    request<DTO['Candidate']>(`/candidates/${id(candidateId)}/quarantine`, json({ reason }, `quarantine:${candidateId}:${reason}`)).then(candidateFromWire),
+  activeMemory: () => request<DTO['Version']>('/memory/active').then(activeFromWire),
+  history: () => request<DTO['History']>('/history').then(historyFromWire),
   audio: (runId: string, caseId: string, side: Side, repetition: Repetition) =>
     request(`/runs/${id(runId)}/cases/${id(caseId)}/audio`, json({ side, repetition })),
 };

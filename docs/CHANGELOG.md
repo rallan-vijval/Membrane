@@ -2,9 +2,43 @@
 
 Read this first when joining the project. Dates use America/New_York. Append an entry for each handoff, contract change, integration fix, or merge; include branch, commit, verification, and any action needed by the other agent. Never include secrets or claim mock results are live.
 
+## 2026-11-14 — Both agents integrated and verified on main
+
+**Current state:** teammate readiness confirmed by the user. Backend `d5e4c73` merged in `5e58293`; frontend `f061fe8` merged in `25a804c`. There were no Git file conflicts. The commit containing this entry fixes the semantic API mismatches found during integration. The older pre-merge entry below is historical.
+
+### Integration changes
+
+- Generated canonical wire types into `frontend/src/api/generated.ts` from OpenAPI. Added explicit wire-to-view mapping in `normalize.ts` for IDs, candidate status, source proposal/provenance, health reasons, selection scores/reasons, paired attempts/enforcement/checks/raw responses, memory versions and audit events.
+- Updated the real HTTP client to use those DTOs, send the required approval reason, and reuse an idempotency key for retries of the same decision within the page session. Removed the provisional-field assumption from the docs.
+- Added the exact exception-reference editor field and preserve it during stage/revision. Added preference scope support. Require the displayed completed run to be the candidate's latest eligible run before enabling approval. Align retest/revision buttons with backend lifecycle states.
+- Fixed initial URL hydration so reload cannot erase candidate/run IDs before restoration. Reject a URL combining different candidates/runs. Poll without overlapping requests and stop at terminal status. Expose stored raw model responses and all selection reasons.
+- Enable explicit optional speech requests when the backend is configured-but-unverified (degraded), so its first generation can be attempted; disabled/unavailable voice stays disabled. Errors remain independent of review.
+- Committed frontend dependency lockfile and generation/build/test scripts. Upgraded Vite to 7.3.8, within the existing React plugin's supported range, resolving the two findings in the original install. Node 20.19+ or 22.12+ is required; verification used Node 24.
+- Added six Playwright checks, including the synthetic fixture-driven review/approval/reload flow, stale evidence, polling, unavailable backend, explicit synthetic mode and a real Vite→FastAPI health request. Tests start local servers with the paid-work worker disabled.
+- Root README now starts the integrated v1 API/React app and uses PowerShell instructions. The previous README is preserved in `docs/legacy-mvp.md`. Dockerfile/Procfile remain legacy-only. Updated frontend setup/demo notes and added `docs/demo-runbook.md`.
+
+### Verified on the merged checkout
+
+| Check | Result |
+| --- | --- |
+| Python backend + preserved MVP tests | 60 passed, 2 credential-dependent skips |
+| Frontend lockfile clean install | `npm ci --ignore-scripts --offline` passed from the local package cache |
+| Canonical TypeScript generation | Passed |
+| TypeScript + production build | Passed, Vite 7.3.8 |
+| Playwright (installed Chrome, headless) | 6 passed; desktop/mobile screenshots inspected |
+| Real local API/proxy | FastAPI health through Vite passed; worker disabled |
+| npm dependency audit | 0 vulnerabilities reported after the compatible update |
+| Whitespace check | Passed |
+
+Browser review payloads are explicitly synthetic test fixtures, not real model evidence. Screenshots under ignored `artifacts/` are test artifacts. Real application Atlas writes, actual extraction/agent runs/search, paid TTS and restart persistence still require local credentials; no connected success is claimed. The earlier plugin read-only connection remains a separate observation.
+
+### Next branch split
+
+Both agents must fetch the resulting `origin/main` and start their next independent branches from the same shared HEAD. Keep backend ownership with Agent A and frontend ownership with Agent B. Previous feature branches remain intact as history. Do not base follow-up work on an old pre-integration feature tip; the wire adapters and integration fixes are on main.
+
 ## 2026-11-14 — Pre-merge handoff checkpoint
 
-**State:** backend is committed and pushed; frontend branch has appeared, but its readiness handoff is pending. Do not merge or begin a new branch split yet. Wait for the teammate, integrate both branches into `main`, verify together, then branch again from that shared merge commit.
+**Historical state at that checkpoint:** backend was committed and pushed; frontend readiness was pending. The integration entry above supersedes this waiting state.
 
 | Reference | Commit | Purpose |
 | --- | --- | --- |

@@ -39,6 +39,7 @@ export function App() {
   const [run, setRun] = useState<Run | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const alive = useRef(true);
 
   const fail = useCallback((err: unknown) => {
@@ -59,9 +60,9 @@ export function App() {
   // Initial load, including a reload with ?candidate=…&run=… in the URL.
   useEffect(() => {
     alive.current = true;
+    const url = readUrl();
     void (async () => {
       await refreshShared();
-      const url = readUrl();
       try {
         if (url.candidate) {
           const c = await api.getCandidate(url.candidate);
@@ -71,11 +72,14 @@ export function App() {
           const runId = url.run ?? c.latest_run_id;
           if (runId) {
             const r = await api.getRun(runId);
+            if (r.candidate_id !== c.id) throw new Error('Selected run belongs to another candidate.');
             if (alive.current) setRun(r);
           }
         }
       } catch (err) {
         fail(err);
+      } finally {
+        if (alive.current) setHydrated(true);
       }
     })();
     return () => {
@@ -84,8 +88,8 @@ export function App() {
   }, [refreshShared, fail]);
 
   useEffect(() => {
-    writeUrl(candidate?.id ?? null, run?.id ?? null);
-  }, [candidate?.id, run?.id]);
+    if (hydrated) writeUrl(candidate?.id ?? null, run?.id ?? null);
+  }, [hydrated, candidate?.id, run?.id]);
 
   // Poll a run every two seconds until it reaches a terminal status or the page goes away.
   const runId = run?.id ?? null;
@@ -93,6 +97,7 @@ export function App() {
   useEffect(() => {
     if (!runId || runDone) return;
     let stopped = false;
+    let timer: number;
     const tick = async () => {
       try {
         const next = await api.getRun(runId);
@@ -104,12 +109,14 @@ export function App() {
         }
       } catch (err) {
         if (!stopped) fail(err);
+      } finally {
+        if (!stopped) timer = window.setTimeout(() => void tick(), POLL_MS);
       }
     };
-    const timer = window.setInterval(() => void tick(), POLL_MS);
+    timer = window.setTimeout(() => void tick(), POLL_MS);
     return () => {
       stopped = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [runId, runDone, fail]);
 

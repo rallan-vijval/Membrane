@@ -260,7 +260,7 @@ export const syntheticApi: MembraneApi = {
     state.history.versions.unshift({ version_id, parent_version_id: state.active.version_id, candidate_id: candidate.id, run_id: runId, activated_at: now() });
     state.history.events.unshift({ id: nextId('evt'), decision: 'approve', actor: 'demo-reviewer', candidate_id: candidate.id, run_id: runId, version_id, reason: null, created_at: now() });
     state.active = {
-      version_id, revision: state.active.revision + 1, activated_at: now(),
+      version_id, revision: (state.active.revision ?? 0) + 1, activated_at: now(),
       entries: [...state.active.entries, { id: nextId('mem'), text: candidate.text, scope: candidate.scope, candidate_id: candidate.id }],
     };
     candidate.state = 'approved';

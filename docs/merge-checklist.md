@@ -1,6 +1,6 @@
 # Shared integration, then branch split
 
-Current user instruction: wait for the other agent's handoff, merge both contributions to `main`, then split into new branches from that common point. No main merge has been performed at this checkpoint.
+User instruction: receive the other agent's handoff, merge both contributions to `main`, then split into new branches from that common point. **Handoff received and integration completed:** backend merge `5e58293`, frontend merge `25a804c`, followed by the integration fixes recorded in `CHANGELOG.md`. Python: 60 passed/2 credential-dependent skips. Browser: 6 passed. Frontend clean install, generated types and production build passed. The checklist below is retained as the procedure/history; its pre-integration waiting condition is no longer pending.
 
 ## Before integration
 

@@ -2,113 +2,66 @@
 
 **Preview what a new memory will make your agent do.**
 
-Built during *Agents in Context Toronto: a MongoDB Hackathon* (Nov 14, 2026).
-Problem statement: **2. Memory You Can Govern.**
+Upload a synthetic support screenshot, stage a candidate memory, compare isolated baseline/candidate agent behavior, review exact attempted refund arguments and trusted policy checks, then quarantine or approve an exact passing revision. Staging never activates memory. All refunds are simulated.
 
-## The problem
+The integrated review app uses **FastAPI (`backend.app.main:app`) + React/TypeScript/Vite (`frontend/`)**. Its contract is in [`contracts/openapi.yaml`](contracts/openapi.yaml), with a [frontend integration guide](contracts/README.md). The earlier `membrane/` Python/static demo remains intact; its separate instructions are preserved in [legacy-mvp.md](docs/legacy-mvp.md). Do not mix their API entrypoints or environment variable names.
 
-Agents learn from what they see, and sometimes learn the wrong lesson. A manager approves one
-exception: "Order 4821 may be refunded without returning the item." The agent remembers
-"VIP customers may keep refunded items." Nothing in that sentence looks malicious, so a content
-scanner passes it, and the agent quietly starts waiving returns for every VIP.
+## Run locally — PowerShell
 
-## What Membrane does
+From the repository root, with Python 3.11+ and Node 20.19+ or 22.12+ (Node 24 was used for verification):
 
-A new memory is tested before the agent may keep it.
-
-1. **Stage.** The proposed memory is stored as `proposed`. The live agent cannot see it.
-2. **Run two views.** The same frozen tasks run in fresh sessions: View A with current memory,
-   View B with current memory plus the candidate. Refund tools are simulated.
-3. **Compare actions.** We diff the tool calls (`return_required: true -> false`), not the wording.
-4. **Decide.** A candidate that breaks policy outside its own scope is quarantined. It can be
-   revised (narrowed to order 4821) and retested. Only a passing run can be accepted.
-
-## How it answers the track's questions
-
-| Question | Answer in this repo |
-| --- | --- |
-| Keep one client's memory from leaking into another's? | Every memory has a `tenant_id`. It is a pre-filter inside `$vectorSearch` and re-checked on the live document. Every test run includes a Store B case. |
-| Fix or drop a memory that is wrong or expired? | Versioned memories: `revise` creates a new version that supersedes the old one once it passes; `revoke` forgets; `expires_at` is enforced in the retrieval query. |
-| Prove a memory changed behavior and didn't just fill the prompt? | The A/B run: identical task, identical session setup, the only difference is the memory, and the recorded tool arguments differ. A memory that changes nothing is reported as `effect: none`. |
-
-## How MongoDB Atlas is used
-
-- `memory_versions`: every memory version with tenant, scope, status, expiry, source and history.
-- `sources`: where each memory came from.
-- `task_fixtures`: frozen, synthetic support cases with hand-written expected outcomes.
-- `simulation_runs`: every A/B run with each tool call, the comparison and the review decision.
-- **Vector Search (auto-embedding, Voyage `voyage-4`)** does two jobs:
-  - `fixture_vec` picks the past cases most related to a candidate memory, so the right tests run.
-  - `memory_vec` retrieves the agent's memory, with tenant, status, expiry and scope as filters.
-
-## Run it
-
-```bash
-python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env                                   # add MONGODB_URI and LLM_API_KEY
-python -m membrane.db                                  # should print {'ok': 1.0}
-python -m scripts.setup_indexes                        # once; indexes take a minute to build
-python -m scripts.reset_demo                           # clean demo state
-uvicorn membrane.app:app --reload                      # open http://127.0.0.1:8000
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
+# First setup only; preserve an existing .env:
+Copy-Item .env.example .env
 ```
 
-## Review UI (React)
+Edit local `.env`: fill `MONGODB_URI`, `OPENAI_API_KEY`, `AGENT_MODEL` and `VISION_MODEL`. The Atlas plugin does not supply the Python app's database credentials or an OpenAI API key. `MONGODB_DB=membrane`; the v1 app uses its own workspace namespace. Optional ElevenLabs settings remain disabled by default. Never put secrets in frontend variables or Git.
 
-The three-column review screen lives in `frontend/`. Setup, synthetic mode and the demo runbook
-are in [frontend/README.md](frontend/README.md).
+Initialize the existing Atlas sandbox without deleting unrelated data:
 
-## Deploy
-
-The app is one web process. Any host that runs a Dockerfile or a Procfile works (Render, Railway, Fly).
-Set `MONGODB_URI`, `DB_NAME`, `LLM_PROVIDER` and `LLM_API_KEY` as environment variables on the host,
-and add the host's outbound IP (or `0.0.0.0/0` for the demo) to the Atlas network access list.
-
-```bash
-docker build -t membrane .
-docker run -p 8000:8000 --env-file .env membrane
+```powershell
+.\.venv\Scripts\python.exe -m scripts.backend_setup seed
+.\.venv\Scripts\python.exe -m scripts.backend_setup seed --with-embeddings
+.\.venv\Scripts\python.exe -m scripts.backend_setup index
+.\.venv\Scripts\python.exe -m scripts.backend_setup preflight
 ```
 
-## Demo flow
+Embedding setup and provider preflight make billable API requests. See [backend setup](docs/backend-setup.md) for budgets, failure states and optional speech, and [Atlas setup](docs/atlas-setup.md) for index JSON/UI fallback. No public deployment or tier changes are required.
 
-1. **Load example** then **Stage memory**: the broad VIP rule is staged for `store_a`.
-2. **Run A/B test**: VIP cases flip to "return waived" in View B and the verdict is FAIL.
-3. **Quarantine**, or **Revise: narrow to one order** (4821), then test again: only order 4821
-   changes, Store B is untouched, verdict PASS.
-4. **Accept** (optionally with a short expiry), then use **Live agent check** on order 4821 and
-   order 5530 to see that only 4821 changed. Revoke it, or let it expire, and check again.
+Terminal 1:
 
-## Tests
-
-```bash
-pytest
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-- `tests/test_compare.py`: the verdict logic (pure, no database or LLM).
-- `tests/test_agent.py`: the agent wrapper with the HTTP call faked.
-- `tests/test_governance.py`: isolation, scope, tenant, expiry, revoke, supersede and audit rules
-  against the real Atlas cluster (skipped when `MONGODB_URI` is not set; uses its own test tenants).
+Terminal 2:
 
-## Limits
-
-- Tests are evidence for the selected cases, not a safety guarantee. Scope, expiry and revoke
-  exist because a bad memory can still pass.
-- Expected outcomes are written by people from the policy. The model never grades itself.
-- All customers, orders and refunds are synthetic. The refund tools only record their arguments.
-
-## Layout
-
+```powershell
+cd frontend
+npm ci
+npm run dev
 ```
-membrane/
-  db.py         Atlas connection
-  fixtures.py   synthetic cases + policy
-  memory.py     stage, governed retrieval, accept, quarantine, revise, revoke, audit
-  agent.py      support agent + simulated refund tools (Anthropic or OpenAI)
-  selector.py   Vector Search test selection
-  runner.py     A/B runs in isolated sessions
-  compare.py    action diff + verdict
-  app.py        FastAPI endpoints
-  static/       the review page (plain HTML)
-scripts/        setup_indexes.py, reset_demo.py
-tests/
+
+Open [the review UI](http://127.0.0.1:5173). API documentation: [local Swagger UI](http://127.0.0.1:8000/docs). Without credentials, the backend still starts and reports unavailable integrations accurately. For an explicitly labeled UI-only rehearsal, open [synthetic mode](http://127.0.0.1:5173/?synthetic=1); it makes no model/Atlas calls and is not evidence.
+
+## Verify
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend\tests tests -q
+cd frontend
+npm run generate:api
+npm run build
+npx playwright install chromium
+$env:MEMBRANE_TEST_PYTHON = (Resolve-Path ..\.venv\Scripts\python.exe).Path
+npm test
 ```
+
+Browser tests start the frontend and backend locally with the run worker disabled. Review-flow HTTP responses are explicitly synthetic fixtures; a separate test reaches the actual FastAPI health endpoint through the Vite proxy. Browser tests verify paired evidence, approval errors, polling, reload, mobile layout, and synthetic opt-in. They do not establish real provider/Atlas acceptance. To use installed Chrome instead of downloaded Chromium, set `$env:PLAYWRIGHT_CHANNEL='chrome'`.
+
+For billable connected acceptance after preflight, run `python -m scripts.backend_smoke` from the configured virtual environment. It stops at eligibility; `--approve` intentionally tests activation. Never fabricate a broad-memory regression if the chosen model resists it.
+
+## Team handoff
+
+Read [the change log](docs/CHANGELOG.md), [two-agent ownership plan](docs/two-agent-plan.md), and [merge checklist](docs/merge-checklist.md). Future work branches from the verified shared `main` checkpoint, with backend and frontend ownership kept separate. Credentials, real provider runs/search/TTS, and the held-out benchmark remain explicit acceptance items until actually verified. Existing Dockerfile/Procfile target the legacy demo and have not been migrated to this local review app.

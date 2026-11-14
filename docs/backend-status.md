@@ -2,7 +2,7 @@
 
 Branch: `feat/membrane-backend`. Worktree: `C:\MongoDB\membrane-backend`.
 
-Coordination: see `CHANGELOG.md` for change locations and source commit IDs. Wait for the frontend agent's readiness handoff, merge both branches into `main`, then split future work from the shared merge commit. No new branch split or main merge is authorized before that handoff.
+Coordination: teammate readiness was confirmed and both branches are integrated on main. See `CHANGELOG.md` for source commits, semantic integration fixes and combined checks. Split future work from the same updated `origin/main`; retain the original feature branches as history.
 
 ## Implemented
 
@@ -27,4 +27,4 @@ Populate local ignored `.env` with `MONGODB_URI`, `OPENAI_API_KEY`, and accessib
 
 Read-only plugin access has been verified, but application-driver write/read, real model runs, known-neighbor retrieval through the application, paid TTS, and live restart acceptance remain **unverified**. No sandbox data or infrastructure was changed during implementation.
 
-The frontend is reserved for the teammate's agent. Use `contracts/README.md` and `contracts/openapi.yaml`; the new API entrypoint is `backend.app.main:app`, not the preserved legacy `membrane.app:app`. M5 benchmark execution/export remains deferred until the core connected demo passes, as required by the milestone order.
+The teammate's frontend is now integrated, with generated wire types, explicit DTO adapters and six passing browser checks. The review flow uses synthetic HTTP test fixtures; an unmocked check reaches actual local FastAPI health through the proxy. Use `contracts/README.md` and `contracts/openapi.yaml`; the new API entrypoint is `backend.app.main:app`, not the preserved legacy `membrane.app:app`. M5 benchmark execution/export remains deferred until the core connected demo passes, as required by the milestone order.

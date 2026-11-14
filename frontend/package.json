@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "generate:api": "openapi-typescript ../contracts/openapi.yaml -o src/api/generated.ts",
+    "test": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -14,10 +16,12 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "openapi-typescript": "^7.13.0",
     "typescript": "^5.5.4",
-    "vite": "^5.4.2"
+    "vite": "^7.3.8"
   }
 }

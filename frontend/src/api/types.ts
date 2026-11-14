@@ -1,10 +1,8 @@
 /**
  * API types for the Membrane review UI.
  *
- * PROVISIONAL: written from docs/two-agent-plan.md ("Shared HTTP contract") before
- * contracts/openapi.yaml was published. When the backend contract lands, regenerate
- * these from it and fix any drift here, in http.ts and in synthetic.ts.
- * Conventions from the handoff: string IDs, snake_case JSON, UTC ISO timestamps, integer cents.
+ * UI view models shared by real and synthetic modes. Wire DTOs are generated from
+ * contracts/openapi.yaml in generated.ts; normalize.ts explicitly maps them here.
  */
 
 export type CandidateState = 'staged' | 'testing' | 'eligible' | 'quarantined' | 'inconclusive' | 'approved';
@@ -28,7 +26,8 @@ export interface Health {
 
 export type Scope =
   | { kind: 'global' }
-  | { kind: 'order'; order_id: string; customer_id: string | null };
+  | { kind: 'preference' }
+  | { kind: 'order'; order_id: string; customer_id: string | null; exception_id?: string | null };
 
 export interface Source {
   id: string;
@@ -65,6 +64,7 @@ export interface SelectedFixture {
   title: string;
   reason: SelectionReason;
   score: number | null;
+  reasons?: string[];
 }
 
 export type Classification =
@@ -86,6 +86,8 @@ export interface Execution {
   /** Deterministic policy enforcement against trusted task facts. */
   enforcement: { allowed: boolean; reasons: string[] } | null;
   error: string | null;
+  raw_responses?: Record<string, unknown>[];
+  checks?: { code: string; passed: boolean; reason: string }[];
 }
 
 export interface CaseResult {
@@ -124,7 +126,7 @@ export interface MemoryEntry {
 
 export interface ActiveMemory {
   version_id: string;
-  revision: number;
+  revision: number | null;
   entries: MemoryEntry[];
   activated_at: string;
 }

@@ -35,6 +35,7 @@ export function Pill({ value }: { value: string }) {
 
 export function scopeLabel(scope: Scope): string {
   if (scope.kind === 'global') return 'Global: every order';
+  if (scope.kind === 'preference') return 'Preference';
   return `Order ${scope.order_id}${scope.customer_id ? `, customer ${scope.customer_id}` : ''} only`;
 }
 
@@ -60,7 +61,7 @@ export function Header({ health, active }: { health: Health | null; active: Acti
       </div>
       <div className="header-right">
         <div className="active-version">
-          Active memory: <strong>{active ? `${active.version_id} (rev ${active.revision}, ${active.entries.length} entries)` : 'unknown'}</strong>
+          Active memory: <strong>{active ? `${active.version_id} (${active.entries.length} ${active.entries.length === 1 ? 'entry' : 'entries'})` : 'unknown'}</strong>
         </div>
         <ul className="health" aria-label="Integration health">
           <HealthItem name="Atlas" item={health?.database} />
@@ -89,6 +90,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
   const [kind, setKind] = useState<Scope['kind']>('global');
   const [orderId, setOrderId] = useState('');
   const [customerId, setCustomerId] = useState('');
+  const [exceptionId, setExceptionId] = useState('');
 
   // Fill the editor from the current candidate, or else from the extraction's proposal.
   const seed = candidate ?? source?.proposed_candidate ?? null;
@@ -99,11 +101,13 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
     setKind(seed.scope.kind);
     setOrderId(seed.scope.kind === 'order' ? seed.scope.order_id : '');
     setCustomerId(seed.scope.kind === 'order' ? seed.scope.customer_id ?? '' : '');
+    setExceptionId(seed.scope.kind === 'order' ? seed.scope.exception_id ?? '' : '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedKey]);
 
-  const scope: Scope = kind === 'order' ? { kind, order_id: orderId.trim(), customer_id: customerId.trim() || null } : { kind: 'global' };
-  const valid = text.trim().length > 0 && (kind === 'global' || orderId.trim().length > 0);
+  const scope: Scope = kind === 'order' ? { kind, order_id: orderId.trim(), customer_id: customerId.trim() || null,
+    exception_id: exceptionId.trim() || null } : { kind };
+  const valid = text.trim().length > 0 && (kind !== 'order' || orderId.trim().length > 0);
 
   return (
     <section className="panel" aria-labelledby="source-h">
@@ -154,6 +158,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
           <select value={kind} onChange={(e) => setKind(e.target.value as Scope['kind'])} disabled={disabled || !source}>
             <option value="global">Global</option>
             <option value="order">One order</option>
+            <option value="preference">Preference</option>
           </select>
         </label>
         {kind === 'order' && (
@@ -166,6 +171,10 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
               <span>Customer ID</span>
               <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={disabled} />
             </label>
+            <label className="field">
+              <span>Trusted exception reference</span>
+              <input value={exceptionId} onChange={(e) => setExceptionId(e.target.value)} disabled={disabled} placeholder="e.g. exc-4821" />
+            </label>
           </>
         )}
       </div>
@@ -177,7 +186,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
           </button>
         )}
         {candidate && (
-          <button type="button" className="secondary" disabled={disabled || !valid || candidate.state === 'approved'} onClick={() => onRevise(text.trim(), scope)}>
+          <button type="button" className="secondary" disabled={disabled || !valid || candidate.state === 'approved' || candidate.state === 'testing'} onClick={() => onRevise(text.trim(), scope)}>
             Save as revision
           </button>
         )}
@@ -256,6 +265,9 @@ function ExecutionDetail({ runId, caseId, exec, voiceReady }: { runId: string; c
         </div>
       )}
       {exec.error && <div className="enforce blocked">Error: {exec.error}</div>}
+      {exec.raw_responses && exec.raw_responses.length > 0 && (
+        <details><summary>Raw model response</summary><pre>{JSON.stringify(exec.raw_responses, null, 2)}</pre></details>
+      )}
       {voiceReady && exec.answer_text && (
         <div className="audio">
           <button type="button" className="link" onClick={() => void listen()}>Listen to this answer</button>
@@ -278,7 +290,7 @@ interface RunPanelProps {
 export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelProps) {
   const [open, setOpen] = useState<string | null>(null);
   const running = run ? run.status === 'queued' || run.status === 'running' : false;
-  const canRun = candidate !== null && !running && candidate.state !== 'approved';
+  const canRun = candidate !== null && !running && ['staged', 'eligible', 'inconclusive'].includes(candidate.state);
   const reasons = new Map(run?.selection.map((s) => [s.fixture_id, s]) ?? []);
 
   return (
@@ -308,6 +320,7 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
               {run.selection.map((s) => (
                 <li key={s.fixture_id}>
                   <span className={`tag tag-${s.reason}`}>{s.reason}</span> {s.title}
+                  {s.reasons && <span className="meta"> · {s.reasons.join(', ')}</span>}
                   {s.score !== null && <span className="meta"> · similarity {s.score.toFixed(3)}</span>}
                 </li>
               ))}
@@ -326,7 +339,7 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
                 const cls = c.classification ?? 'inconclusive';
                 return (
                   <CaseRows key={c.case_id} c={c} cls={cls} expanded={expanded} runId={run.id}
-                            pickedBy={reasons.get(c.fixture_id)?.reason ?? null} voiceReady={voice?.status === 'ready'}
+                            pickedBy={reasons.get(c.fixture_id)?.reason ?? null} voiceReady={voice?.status === 'ready' || voice?.status === 'degraded'}
                             onToggle={() => setOpen(expanded ? null : c.case_id)} />
                 );
               })}
@@ -384,7 +397,8 @@ interface DecisionPanelProps {
 export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantine }: DecisionPanelProps) {
   const [reason, setReason] = useState('');
   // Approval is offered only when the BACKEND says both the candidate and this run are eligible.
-  const eligible = candidate?.state === 'eligible' && run?.admission === 'eligible' && run.candidate_id === candidate.id;
+  const eligible = candidate?.state === 'eligible' && run?.status === 'completed' && run.admission === 'eligible'
+    && run.candidate_id === candidate.id && candidate.latest_run_id === run.id;
   const decided = candidate?.state === 'approved' || candidate?.state === 'quarantined';
 
   return (
@@ -397,7 +411,7 @@ export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantin
           {run?.admission ? (
             <div className={`verdict verdict-${run.admission}`}>
               <strong>
-                {run.admission === 'eligible' && '✓ Eligible for approval'}
+                {run.admission === 'eligible' && (candidate.state === 'approved' ? '✓ Approved and active' : '✓ Eligible for approval')}
                 {run.admission === 'quarantine' && '✕ Should be quarantined'}
                 {run.admission === 'inconclusive' && '? Inconclusive: investigate or retest'}
               </strong>
