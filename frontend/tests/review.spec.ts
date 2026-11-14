@@ -102,7 +102,7 @@ async function mockContract(page: Page, options: { stale?: boolean; queued?: boo
 
 async function reachEligible(page: Page) {
   await page.goto('/');
-  await page.getByLabel('Screenshot (PNG or JPEG, synthetic data only)').setInputFiles(screenshot);
+  await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByLabel('Candidate memory').fill('All VIP customers can keep refunded items.');
   await page.getByRole('combobox').selectOption('global');
   await page.getByRole('button', { name: 'Stage candidate', exact: true }).click();

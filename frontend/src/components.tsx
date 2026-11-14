@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
 import {
   api,
   type ActiveMemory,
@@ -14,7 +14,8 @@ import {
   type Side,
   type Source,
 } from './api';
-import { describeError } from './util';
+import { captureFrame, prepare } from './intake';
+import { attemptDiff, describeError } from './util';
 
 // ----------------------------------------------------------------------------- small pieces
 
@@ -57,7 +58,7 @@ export function Header({ health, active }: { health: Health | null; active: Acti
     <header className="header">
       <div>
         <h1>Membrane</h1>
-        <p>Preview what a new memory will make your agent do.</p>
+        <p>See what a new memory will make your agent do, before it does it.</p>
       </div>
       <div className="header-right">
         <div className="active-version">
@@ -91,6 +92,45 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
   const [orderId, setOrderId] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [exceptionId, setExceptionId] = useState('');
+  const [over, setOver] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [intakeProblem, setIntakeProblem] = useState<string | null>(null);
+  const [video, setVideo] = useState<{ url: string; name: string } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => () => { if (video) URL.revokeObjectURL(video.url); }, [video]);
+
+  // Turn whatever was dropped into the one PNG/JPEG the API accepts, and say what was done.
+  const take = async (file: File | undefined) => {
+    if (!file || disabled) return;
+    setIntakeProblem(null);
+    setReading(true);
+    try {
+      const result = await prepare(file);
+      if (result.kind === 'ready') { setNote(result.note); onUpload(result.file); }
+      else if (result.kind === 'video') setVideo({ url: URL.createObjectURL(result.file), name: result.file.name });
+      else setIntakeProblem(result.message);
+    } finally {
+      setReading(false);
+    }
+  };
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setOver(false);
+    void take(e.dataTransfer.files[0]);
+  };
+  const useFrame = async () => {
+    if (!videoRef.current || !video) return;
+    try {
+      const frame = await captureFrame(videoRef.current, video.name);
+      setVideo(null);
+      setNote(frame.note);
+      onUpload(frame.file);
+    } catch (err) {
+      setIntakeProblem(err instanceof Error ? err.message : 'Could not capture that frame.');
+    }
+  };
 
   // Fill the editor from the current candidate, or else from the extraction's proposal.
   const seed = candidate ?? source?.proposed_candidate ?? null;
@@ -113,23 +153,39 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
     <section className="panel" aria-labelledby="source-h">
       <h2 id="source-h">1. Source and candidate</h2>
 
-      <label className="field">
-        <span>Screenshot (PNG or JPEG, synthetic data only)</span>
-        <input
-          type="file"
-          accept="image/png,image/jpeg"
-          disabled={disabled}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onUpload(file);
-            e.target.value = '';
-          }}
-        />
-      </label>
+      {video ? (
+        <div className="frame-picker">
+          <video ref={videoRef} src={video.url} controls muted playsInline aria-label={`Preview of ${video.name}`} />
+          <p className="meta">Pause on the frame that shows the note or message, then use it. Only that one frame is sent; sound is ignored.</p>
+          <div className="actions">
+            <button type="button" disabled={disabled} onClick={() => void useFrame()}>Use this frame</button>
+            <button type="button" className="secondary" onClick={() => setVideo(null)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className={`dropzone${over ? ' dropzone-over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+             onDragLeave={() => setOver(false)} onDrop={onDrop}>
+          <p className="dropzone-title">{reading ? 'Reading the file…' : 'Drop a file here'}</p>
+          <label className="field">
+            <span>Source file (image, PDF, text or video; synthetic data only)</span>
+            <input
+              type="file"
+              accept="image/*,video/*,application/pdf,text/*,.md,.csv,.json,.log,.eml"
+              disabled={disabled || reading}
+              onChange={(e) => {
+                void take(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+          </label>
+        </div>
+      )}
+      {intakeProblem && <p className="intake-problem" role="status">{intakeProblem}</p>}
 
       {source ? (
         <div className="source">
-          {source.image_url && <img src={source.image_url} alt="Uploaded source screenshot" />}
+          {source.image_url && <img src={source.image_url} alt="The source as sent to the backend" />}
+          {note && <p className="conversion">{note}</p>}
           <div className="trust">
             <Pill value={source.provenance.trusted ? 'ready' : 'degraded'} />{' '}
             {source.provenance.trusted ? 'Trusted source' : 'Untrusted source: it cannot grant authority or exceptions'}
@@ -145,7 +201,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
           </details>
         </div>
       ) : (
-        <p className="empty">Upload a screenshot to extract a proposed memory.</p>
+        <p className="empty">Add a source to extract a proposed memory. A PDF sends page 1; a video sends the one frame you pick.</p>
       )}
 
       <label className="field">
@@ -218,6 +274,17 @@ function actionLabel(exec: Execution): string {
     return waive === true ? 'Refund, return waived' : 'Refund';
   }
   return { request_return: 'Ask for return', request_verification: 'Ask for verification', answer: 'Answer, no refund', error: 'Error' }[exec.outcome];
+}
+
+const ORDER: Classification[] = ['new-policy-violation', 'pre-existing-violation', 'inconclusive', 'intended-safe-change', 'unchanged-safe'];
+const firstOf = (c: CaseResult, side: Side) => c.executions.filter((e) => e.side === side).sort((a, b) => a.repetition - b.repetition);
+
+/** The exact tool-argument differences between current memory and the candidate, for one case. */
+function caseDiff(c: CaseResult) {
+  const a = firstOf(c, 'baseline')[0];
+  const key = (e: Execution | undefined) => JSON.stringify([e?.outcome, e?.attempt?.arguments ?? null]);
+  const b = firstOf(c, 'candidate').find((e) => key(e) !== key(a)) ?? firstOf(c, 'candidate')[0];
+  return a && b ? attemptDiff(a, b) : [];
 }
 
 /** One line per side; if the two repetitions disagree, show both. */
@@ -331,10 +398,10 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
 
           <table>
             <thead>
-              <tr><th scope="col">Case</th><th scope="col">A · current</th><th scope="col">B · with candidate</th><th scope="col">Result</th></tr>
+              <tr><th scope="col">Case</th><th scope="col">A · current</th><th className="pore-head" aria-hidden="true" /><th scope="col">B · with candidate</th><th scope="col">Result</th></tr>
             </thead>
             <tbody>
-              {run.cases.map((c) => {
+              {[...run.cases].sort((x, y) => ORDER.indexOf(x.classification ?? 'inconclusive') - ORDER.indexOf(y.classification ?? 'inconclusive')).map((c) => {
                 const expanded = open === c.case_id;
                 const cls = c.classification ?? 'inconclusive';
                 return (
@@ -355,6 +422,7 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
 function CaseRows({ c, cls, expanded, runId, pickedBy, voiceReady, onToggle }: {
   c: CaseResult; cls: Classification; expanded: boolean; runId: string; pickedBy: string | null; voiceReady: boolean; onToggle: () => void;
 }) {
+  const diff = c.classification ? caseDiff(c) : [];
   return (
     <>
       <tr className={`case case-${cls}`}>
@@ -364,13 +432,21 @@ function CaseRows({ c, cls, expanded, runId, pickedBy, voiceReady, onToggle }: {
           </button>
           {pickedBy && <span className="meta"> · {pickedBy}</span>}
         </th>
-        <td>{sideSummary(c, 'baseline')}</td>
-        <td className="b-cell">{sideSummary(c, 'candidate')}</td>
+        <td className="a-cell">{sideSummary(c, 'baseline')}</td>
+        <td className="pore" aria-hidden="true"><span /></td>
+        <td className="b-cell">
+          {sideSummary(c, 'candidate')}
+          {diff.length > 0 && (
+            <span className="crossing">
+              {diff.map((d) => <span key={d.field} className="chip"><code>{d.field}</code> {d.from} → {d.to}</span>)}
+            </span>
+          )}
+        </td>
         <td className="result">{c.classification ? CLASS_TEXT[cls] : 'Pending'}</td>
       </tr>
       {expanded && (
         <tr className="detail">
-          <td colSpan={4}>
+          <td colSpan={5}>
             {c.check_reasons.length > 0 && <ul className="checks">{c.check_reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
             <div className="exec-grid">
               {[...c.executions]
@@ -416,6 +492,12 @@ export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantin
                 {run.admission === 'inconclusive' && '? Inconclusive: investigate or retest'}
               </strong>
               <ul>{run.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+              {run.cases.length > 0 && (
+                <p className="tally">
+                  Of {run.cases.length} cases: {ORDER.map((k) => [run.cases.filter((c) => (c.classification ?? 'inconclusive') === k).length, CLASS_TEXT[k].toLowerCase()] as const)
+                    .filter(([n]) => n > 0).map(([n, label]) => `${n} ${label}`).join(', ')}.
+                </p>
+              )}
             </div>
           ) : (
             <p className="hint">Run the behavior test to get an admission result.</p>
@@ -444,12 +526,22 @@ export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantin
 
 // ----------------------------------------------------------------------------- footer
 
-export function Footer({ history, run, mode }: { history: History | null; run: Run | null; mode: 'real' | 'synthetic' }) {
+export function Footer({ history, active, run, mode }: { history: History | null; active: ActiveMemory | null; run: Run | null; mode: 'real' | 'synthetic' }) {
   return (
     <footer className="footer">
       <details>
         <summary>History and run details</summary>
         <div className="footer-grid">
+          <div>
+            <h3>Memory in force</h3>
+            {active && active.entries.length > 0 ? (
+              <ul className="timeline">
+                {active.entries.map((m) => (
+                  <li key={m.id}>{m.text}<div className="meta">{scopeLabel(m.scope)}{m.candidate_id ? `, from ${m.candidate_id}` : ', seeded policy'}</div></li>
+                ))}
+              </ul>
+            ) : <p className="empty">Nothing loaded.</p>}
+          </div>
           <div>
             <h3>Run</h3>
             {run ? (

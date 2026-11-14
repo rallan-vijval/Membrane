@@ -101,12 +101,12 @@ export function App() {
     const tick = async () => {
       try {
         const next = await api.getRun(runId);
+        // On the final poll read the candidate first: setting a terminal run ends this effect,
+        // and the candidate's new state (eligible/quarantined) would otherwise be dropped.
+        const c = TERMINAL_RUN.has(next.status) ? await api.getCandidate(next.candidate_id) : null;
         if (stopped) return;
+        if (c) setCandidate(c);
         setRun(next);
-        if (TERMINAL_RUN.has(next.status)) {
-          const c = await api.getCandidate(next.candidate_id);
-          if (!stopped) setCandidate(c);
-        }
       } catch (err) {
         if (!stopped) fail(err);
       } finally {
@@ -210,7 +210,7 @@ export function App() {
         <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
         <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
       </main>
-      <Footer history={history} run={run} mode={api.mode} />
+      <Footer history={history} active={active} run={run} mode={api.mode} />
     </div>
   );
 }
