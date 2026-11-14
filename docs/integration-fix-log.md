@@ -43,3 +43,9 @@ Vite's dynamic-import helper added ?import to the public PDF.js module URL and t
 ## Visual review refresh
 
 Added a state-driven five-stage journey and next-step guidance, a distinct A/B experiment boundary, and case-outcome counts separating new violations, baseline violations, inconclusive evidence, safe changes and unchanged-safe cases. Active-memory exploration is visually separated from admission testing. Updated typography, spacing, teal/paper palette and responsive layouts. Outcomes remain derived from backend classifications and approval authority is unchanged. Production build and all 15 browser tests passed against running local servers; desktop and mobile screenshots inspected. Future demo proposals are recorded separately in demo-improvements.md.
+
+## Simplified memory review workspace
+
+Replaced jargon in visible controls with proposed memory, Save for testing, Test this memory, Approve for use and Reject memory. Arranged the review flow vertically with numbered proposal/test/evidence/decision sections and a four-stage guide. Moved approved-memory management and current-agent trials into a separate workspace; a stored execution URL opens that workspace. Case details explain new versus pre-existing violations, inconclusive evidence and safe outcomes. Backend approval rules and scenario selection unchanged. The next experiment proposal and template integration notes are in demo-experiment-direction.md.
+
+Validation: production build and all 15 browser tests passed on the final code; desktop capture inspected and mobile overflow check passed. Fixed a proposal-editor initialization race found during tests so extraction cannot overwrite an edit before the editor is ready. This release does not claim any new real-provider admission results.

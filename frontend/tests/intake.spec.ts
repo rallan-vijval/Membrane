@@ -12,7 +12,7 @@ test('PDF upload renders without Vite transforms or errors', async ({ page }) =>
   await page.goto('/?synthetic=1');
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(resolve('../fixtures/synthetic-supervisor-note-4821.pdf'));
   await expect(page.getByText('The PDF page was rendered in your browser as an image.')).toBeVisible({ timeout: 20000 });
-  await expect(page.getByLabel('Candidate memory')).not.toHaveValue('');
+  await expect(page.getByRole('textbox', { name: 'Proposed memory', exact: true })).not.toHaveValue('');
   await expect(page.locator('vite-error-overlay')).toHaveCount(0);
   expect(errors).toEqual([]);
   expect(pdfRequests.some(url => url.endsWith('/pdf.min.mjs'))).toBe(true);

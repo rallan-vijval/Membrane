@@ -34,9 +34,10 @@ const STATUS_ICON: Record<string, string> = {
 
 /** Status is always shown as icon + word, never color alone. */
 export function Pill({ value }: { value: string }) {
+  const label: Record<string, string> = { staged: 'saved for testing', eligible: 'passed checks', quarantined: 'rejected', quarantine: 'rejected', testing: 'testing', inconclusive: 'needs investigation' };
   return (
     <span className={`pill pill-${value}`}>
-      <span aria-hidden="true">{STATUS_ICON[value] ?? '•'}</span> {value}
+      <span aria-hidden="true">{STATUS_ICON[value] ?? '•'}</span> {label[value] ?? value}
     </span>
   );
 }
@@ -147,9 +148,12 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
   // Fill the editor from the current candidate, or else from the extraction's proposal.
   const seed = candidate ?? source?.proposed_candidate ?? null;
   const seedKey = candidate?.id ?? source?.id ?? '';
+  const [initializedEditor, setInitializedEditor] = useState('');
+  const editorReady = !!seedKey && initializedEditor === seedKey;
   useEffect(() => {
     if (!seed) return;
     setText(seed.text);
+    setInitializedEditor(seedKey);
     setKind(seed.scope.kind);
     setOrderId(seed.scope.kind === 'order' ? seed.scope.order_id : '');
     setCustomerId(seed.scope.kind === 'order' ? seed.scope.customer_id ?? '' : '');
@@ -165,11 +169,11 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
   const ttlValid = Number.isInteger(minutes) && minutes * 60 >= TTL_MIN_SECONDS && minutes * 60 <= TTL_MAX_SECONDS;
   // The backend requires an exact order AND customer for an order scope.
   const scopeValid = kind !== 'order' || (orderId.trim().length > 0 && customerId.trim().length > 0);
-  const valid = text.trim().length > 0 && scopeValid && ttlValid;
+  const valid = editorReady && text.trim().length > 0 && scopeValid && ttlValid;
 
   return (
     <section className="panel" aria-labelledby="source-h">
-      <h2 id="source-h">1. Source and candidate</h2>
+      <h2 id="source-h">1. What should the AI remember?</h2>
 
       {video ? (
         <div className="frame-picker">
@@ -223,8 +227,8 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
       )}
 
       <label className="field">
-        <span>Candidate memory</span>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} disabled={disabled || !source} />
+        <span>Proposed memory</span>
+        <textarea aria-label="Proposed memory" value={text} onChange={(e) => setText(e.target.value)} rows={3} disabled={disabled || !source || !editorReady} />
       </label>
       <div className="row">
         <label className="field">
@@ -266,19 +270,19 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
       <div className="actions">
         {!candidate && (
           <button type="button" disabled={disabled || !source || !valid} onClick={() => onStage(text.trim(), scope, minutes * 60)}>
-            Stage candidate
+            Save for testing
           </button>
         )}
         {candidate && (
           <button type="button" className="secondary" disabled={disabled || !valid || candidate.state === 'approved' || candidate.state === 'testing'} onClick={() => onRevise(text.trim(), scope, minutes * 60)}>
-            Save as revision
+            Save changes for a new test
           </button>
         )}
       </div>
 
       {candidate && (
         <dl className="facts">
-          <dt>Candidate</dt>
+          <dt>Proposal</dt>
           <dd><code>{candidate.id}</code> <Pill value={candidate.state} /></dd>
           <dt>Scope</dt>
           <dd>{scopeLabel(candidate.scope)}</dd>
@@ -346,7 +350,7 @@ function ExecutionDetail({ runId, caseId, exec, voiceReady }: { runId: string; c
   };
   return (
     <div className="exec">
-      <h4>{exec.side === 'baseline' ? 'A · current memory' : 'B · with candidate'} · repetition {exec.repetition}</h4>
+      <h4>{exec.side === 'baseline' ? 'Without the proposed memory' : 'With the proposed memory'} · repetition {exec.repetition}</h4>
       <p className="answer">{exec.answer_text || <em>No answer text</em>}</p>
       {exec.attempt ? (
         <>
@@ -392,17 +396,17 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
 
   return (
     <section className="panel wide" aria-labelledby="run-h">
-      <h2 id="run-h">2. Behavior preview</h2>
-      <p className="hint">The same frozen tasks run with current memory (A) and with the candidate added (B). Compare what the agent tried to do.</p>
+      <h2 id="run-h">2. Test the proposed memory</h2>
+      <p className="hint">The same support requests are tried without and with this proposed memory, twice each. We check the attempted actions against fixed refund rules. Saving or testing does not put the memory into use.</p>
       <ExperimentSummary run={run} />
       <div className="actions">
         <button type="button" disabled={disabled || !canRun} onClick={onRun}>
-          {run ? 'Run test again' : 'Run behavior test'}
+          {run ? 'Repeat this test' : 'Test this memory'}
         </button>
         {run && <Pill value={run.status} />}
       </div>
 
-      {!candidate && <p className="empty">Stage a candidate to test it.</p>}
+      {!candidate && <p className="empty">Save a proposed memory above before testing it.</p>}
 
       {run && (
         <>
@@ -427,9 +431,11 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
 
           {run.errors.length > 0 && <ul className="run-errors">{run.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
 
+          <h3 className="results-heading">3. What changed?</h3>
+          <p className="hint">Open a request to see the attempted actions and the rules they passed or failed.</p>
           <table>
             <thead>
-              <tr><th scope="col">Case</th><th scope="col">A · current</th><th className="pore-head" aria-hidden="true" /><th scope="col">B · with candidate</th><th scope="col">Result</th></tr>
+              <tr><th scope="col">Case</th><th scope="col">Without it</th><th className="pore-head" aria-hidden="true" /><th scope="col">With the proposed memory</th><th scope="col">Result</th></tr>
             </thead>
             <tbody>
               {[...run.cases].sort((x, y) => ORDER.indexOf(x.classification ?? 'inconclusive') - ORDER.indexOf(y.classification ?? 'inconclusive')).map((c) => {
@@ -481,6 +487,13 @@ function CaseRows({ c, cls, expanded, runId, pickedBy, voiceReady, onToggle, ret
       {expanded && (
         <tr className="detail">
           <td colSpan={5}>
+            <div className="case-explanation"><strong>{({
+              'new-policy-violation': 'The proposed memory introduced a policy failure.',
+              'pre-existing-violation': 'The AI failed a policy check even without this memory.',
+              'inconclusive': 'This request does not have enough valid, passing evidence.',
+              'intended-safe-change': 'The memory changed an action and the checks passed.',
+              'unchanged-safe': 'The AI took the same safe action with and without this memory.',
+            })[cls]}</strong><p>{c.executions.some(e => e.error) ? 'At least one model response failed. Its output is retained below; a failed response is not a successful safety check.' : 'The reasons below come from backend policy checks, not from the AI judging itself.'}</p></div>
             {c.check_reasons.length > 0 && <ul className="checks">{c.check_reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
             <RetrievalEvidence retrieval={retrieval} runHasProvenance={runHasProvenance} candidateText={candidateText} />
             <div className="exec-grid">
@@ -514,16 +527,16 @@ export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantin
 
   return (
     <section className="panel" aria-labelledby="decision-h">
-      <h2 id="decision-h">3. Decision</h2>
+      <h2 id="decision-h">4. Put this memory into use?</h2>
       {!candidate && <p className="empty">Nothing to decide yet.</p>}
       {candidate && (
         <>
-          <p>Candidate is <Pill value={candidate.state} /></p>
+          <p>Memory status: <Pill value={candidate.state} /></p>
           {run?.admission ? (
             <div className={`verdict verdict-${run.admission}`}>
               <strong>
-                {run.admission === 'eligible' && (candidate.state === 'approved' ? '✓ Approved and active' : '✓ Eligible for approval')}
-                {run.admission === 'quarantine' && '✕ Should be quarantined'}
+                {run.admission === 'eligible' && (candidate.state === 'approved' ? '✓ Approved and active' : '✓ Passed checks - review before approval')}
+                {run.admission === 'quarantine' && '✕ Rejected - inspect the failures'}
                 {run.admission === 'inconclusive' && '? Inconclusive: investigate or retest'}
               </strong>
               <ul>{run.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
@@ -535,23 +548,23 @@ export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantin
               )}
             </div>
           ) : (
-            <p className="hint">Run the behavior test to get an admission result.</p>
+            <p className="hint">Test the proposed memory above before making a decision.</p>
           )}
 
           <div className="actions stack">
-            <button type="button" disabled={disabled || !eligible} onClick={onApprove}>Approve and activate</button>
+            <button type="button" disabled={disabled || !eligible} onClick={onApprove}>Approve for use</button>
             {!eligible && candidate.state !== 'approved' && (
-              <p className="meta">Approval unlocks only when the backend reports an eligible run for this exact candidate.</p>
+              <p className="meta">Approval is available only after this exact version passes the required checks.</p>
             )}
             <label className="field">
-              <span>Quarantine reason</span>
+              <span>Reason for rejecting</span>
               <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. waives returns for every VIP" disabled={disabled || decided} />
             </label>
             <button type="button" className="danger" disabled={disabled || decided || reason.trim().length === 0}
                     onClick={() => onQuarantine(reason.trim())}>
-              Quarantine
+              Reject memory
             </button>
-            <p className="meta">To narrow the memory instead, edit the text and scope on the left and save it as a revision. A revision must pass its own test.</p>
+            <p className="meta">To narrow the memory, edit the proposal above and save it for a new test. Earlier results cannot approve an edited memory.</p>
           </div>
         </>
       )}
@@ -568,7 +581,7 @@ export function Footer({ history, active, run, mode }: { history: History | null
         <summary>History and run details</summary>
         <div className="footer-grid">
           <div>
-            <h3>Memory in force</h3>
+            <h3>Approved memories</h3>
             {active && active.entries.length > 0 ? (
               <ul className="timeline">
                 {active.entries.map((m) => (

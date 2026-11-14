@@ -4,13 +4,13 @@ import type { Candidate, Run, Source } from './api';
 export function WorkflowGuide({ source, candidate, run }: { source: Source | null; candidate: Candidate | null; run: Run | null }) {
   const approved = candidate?.state === 'approved';
   const running = run?.status === 'running' || run?.status === 'queued';
-  const stage = approved ? 4 : run ? (running ? 2 : 3) : candidate ? 2 : source ? 1 : 0;
-  const steps = ['Read the source', 'Shape the memory', 'Compare behavior', 'Review the evidence', 'Activate deliberately'];
+  const stage = approved ? 3 : run ? (running ? 1 : 2) : candidate ? 1 : 0;
+  const steps = ['Propose a memory', 'Test it', 'Inspect what changed', 'Approve or reject'];
   const next = approved ? 'This revision is approved. Inspect active memory, then try the current agent.'
     : running ? `The experiment is running: ${run.progress.completed} of ${run.progress.total} decisions recorded.`
-    : run ? (run.admission === 'eligible' ? 'Evidence is eligible. Review it before approving this exact revision.' : 'Admission is blocked. Inspect the evidence, revise the candidate and test again.')
+    : run ? (run.admission === 'eligible' ? 'Evidence is eligible. Review it before approving this exact revision.' : 'This memory cannot be approved. Inspect the failures, edit the proposal and test again.')
     : candidate ? 'Run the behavior test. The proposed memory is still isolated.'
-    : source ? 'Review the extracted text, scope and lifetime, then stage a candidate.'
+    : source ? 'Review the extracted text, scope and lifetime, then save it for testing.'
     : 'Upload a note or PDF. We will extract a proposed memory for you to review.';
   return <section className="workflow-guide" aria-label="Review workflow">
     <div className="workflow-intro"><div><p className="eyebrow">THE MEMORY CHECKPOINT</p><h2>Before it becomes a habit.</h2><p>See what a proposed memory changes before the live agent can use it.</p></div><span className="boundary-label">{approved ? '✓ Revision approved' : '◇ Proposed memory stays isolated'}</span></div>
@@ -30,7 +30,7 @@ export function ExperimentSummary({ run }: { run: Run | null }) {
     { label: 'Safe, unchanged', value: count('unchanged-safe'), tone: 'neutral', symbol: '=' },
   ];
   return <div className="experiment-summary" aria-label="Recorded case outcomes">
-    <div className="experiment-key"><span>A <small>Current memory</small></span><span className="experiment-boundary">MEMBRANE</span><span>B <small>Current + proposed</small></span></div>
+    <div className="experiment-key"><span>A <small>Without the proposed memory</small></span><span className="experiment-boundary">MEMBRANE</span><span>B <small>With the proposed memory</small></span></div>
     <div className="outcome-strip">{outcomes.map(o => <div className={`outcome outcome-${o.tone}`} key={o.label}><span aria-hidden="true">{o.symbol}</span><strong>{o.value}</strong><span>{o.label}</span></div>)}</div>
     <p className="meta">Recorded cases only. Inconclusive means missing, invalid or unmet evidence; it is not proof of a new violation. Open a case below to inspect the actual actions and checks.</p>
   </div>;

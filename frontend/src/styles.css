@@ -234,3 +234,16 @@ button:hover:not(:disabled) { background: #245155; }
 .live-divider p { color: var(--ink-soft); font-size: 14px; }
 @media (max-width: 1200px) { .columns { grid-template-columns: minmax(0,1fr); } .workflow-guide { margin: 18px 16px 0; } .live-divider { margin: 24px 16px 4px; } }
 @media (max-width: 600px) { .header { padding: 20px 16px; } .workflow-intro { padding: 20px 18px; } .journey { grid-template-columns: 1fr; padding: 0 18px 18px; gap: 6px; } .journey li { display: flex; gap: 12px; padding-top: 7px; } .next-step { padding: 14px 18px; } .next-step strong { display: block; } .outcome-strip { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+
+/* Structure only: teammates can replace the visual tokens independently. */
+[hidden] { display: none !important; }
+.workspace-tabs { display: flex; gap: 8px; padding: 20px 32px 0; flex-wrap: wrap; }
+.workspace-tabs button { background: transparent; color: var(--ink-soft); border-color: var(--rule); }
+.workspace-tabs button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.review-flow { max-width: 1100px; margin: auto; grid-template-columns: minmax(0,1fr); }
+.review-flow > .panel { padding: 26px; }
+.journey { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.case-explanation { padding: 12px; background: var(--membrane-soft); border-radius: 8px; margin-bottom: 12px; }
+.case-explanation p { margin-top: 5px; font-size: 13px; }
+.results-heading { margin: 20px 0 6px; font-size: 18px; }
+@media (max-width: 600px) { .workspace-tabs { padding: 16px 16px 0; } .journey { grid-template-columns: 1fr; } .review-flow > .panel { padding: 18px; } }

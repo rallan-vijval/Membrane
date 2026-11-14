@@ -105,23 +105,23 @@ async function mockContract(page: Page, options: { stale?: boolean; queued?: boo
 async function reachEligible(page: Page) {
   await page.goto('/');
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
-  await page.getByLabel('Candidate memory').fill('All VIP customers can keep refunded items.');
+  await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('All VIP customers can keep refunded items.');
   await page.getByLabel('Scope').selectOption('global');
-  await page.getByRole('button', { name: 'Stage candidate', exact: true }).click();
-  await page.getByRole('button', { name: 'Run behavior test', exact: true }).click();
-  await expect(page.getByText('Should be quarantined')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Approve and activate' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
+  await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
+  await expect(page.getByText('Rejected - inspect the failures')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve for use' })).toBeDisabled();
   await page.getByRole('button', { name: /Synthetic policy case 0/ }).click();
   await expect(page.getByText('Tool guard blocked it').first()).toBeVisible();
   await expect(page.getByText('Raw model response').first()).toBeVisible();
-  await page.getByLabel('Candidate memory').fill(narrowText);
+  await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill(narrowText);
   await page.getByLabel('Scope').selectOption('order');
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
   await page.getByLabel('Customer ID', { exact: true }).fill('customer-4821');
   await page.getByLabel('Trusted exception reference').fill('exc-4821');
-  await page.getByRole('button', { name: 'Save as revision' }).click();
-  await page.getByRole('button', { name: 'Run behavior test', exact: true }).click();
-  await expect(page.getByText('Eligible for approval')).toBeVisible();
+  await page.getByRole('button', { name: 'Save changes for a new test' }).click();
+  await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
+  await expect(page.getByText('Passed checks - review before approval')).toBeVisible();
 }
 
 test('wire-contract broad → revision → approval → reload; desktop and mobile', async ({ page }) => {
@@ -129,12 +129,12 @@ test('wire-contract broad → revision → approval → reload; desktop and mobi
   page.on('pageerror', (error) => errors.push(error.message));
   const mock = await mockContract(page);
   await reachEligible(page);
-  await page.getByRole('button', { name: 'Approve and activate' }).click();
+  await page.getByRole('button', { name: 'Approve for use' }).click();
   await expect(page.locator('.active-version')).toContainText('version_browser_approved');
   await expect(page).toHaveURL(/candidate=candidate_browser_2&run=run_browser_2/);
   await page.reload();
   await expect(page.locator('.active-version')).toContainText('version_browser_approved');
-  await expect(page.getByLabel('Candidate memory')).toHaveValue(narrowText);
+  await expect(page.getByRole('textbox', { name: 'Proposed memory', exact: true })).toHaveValue(narrowText);
   await expect(page).toHaveURL(/candidate=candidate_browser_2&run=run_browser_2/);
   await page.screenshot({ path: '../artifacts/review-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -147,7 +147,7 @@ test('wire-contract broad → revision → approval → reload; desktop and mobi
 test('409 approval surfaces retest requirement without activating', async ({ page }) => {
   await mockContract(page, { stale: true });
   await reachEligible(page);
-  await page.getByRole('button', { name: 'Approve and activate' }).click();
+  await page.getByRole('button', { name: 'Approve for use' }).click();
   await expect(page.getByRole('alert')).toContainText(/test again/i);
   await expect(page.locator('.active-version')).not.toContainText('version_browser_approved');
 });
@@ -206,7 +206,8 @@ test('governed memory honors backend expiry and sends a version-bound revoke', a
     return route.fulfill({ json: { version_id: 'version_revoked', event_id: 'event_test' } satisfies DTO['RevokeResult'] });
   });
   await page.goto('/');
-  const panel = page.getByRole('region', { name: 'Memory in force' });
+  await page.getByRole('button', { name: 'Approved memories and current AI', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Approved memories' });
   await expect(panel.getByRole('button', { name: 'Revoke', exact: true })).toHaveCount(1);
   await expect(panel).toContainText('No longer used');
   await panel.getByRole('button', { name: 'Revoke', exact: true }).click();

@@ -56,7 +56,7 @@ export function MemoryPanel({ memory, problem, disabled, onRevoke, onRefresh }: 
 
   return (
     <section className="panel" aria-labelledby="memory-h">
-      <h2 id="memory-h">Memory in force</h2>
+      <h2 id="memory-h">Approved memories</h2>
       <p className="hint">What the live agent can be given right now. Each memory has an owner version, a scope and an expiry. Expired memories stay on record but are no longer used.</p>
       {problem && <p className="panel-problem" role="status">{problem}</p>}
       {!memory && !problem && <p className="empty">Loading…</p>}
@@ -202,7 +202,7 @@ export function ActiveTaskPanel({ versionId, disabled, onStale }: ActiveTaskPane
   const title = (id: string) => tasks?.find((t) => t.fixture_id === id)?.description ?? id;
   return (
     <section className="panel" aria-labelledby="active-task-h">
-      <h2 id="active-task-h">Run with active memory</h2>
+      <h2 id="active-task-h">Try the current AI</h2>
       <p className="hint">Ask the live agent to handle one synthetic request using only the memory in force. Run it before and after an approval, a revoke or an expiry to see the behavior change. This is not admission evidence and cannot unlock approval.</p>
       <div className="row">
         <label className="field task-field">
@@ -214,7 +214,7 @@ export function ActiveTaskPanel({ versionId, disabled, onStale }: ActiveTaskPane
       </div>
       <div className="actions">
         <button type="button" disabled={disabled || working || !versionId || !fixtureId} onClick={() => void run()}>
-          {working ? 'Running…' : 'Run with active memory'}
+          {working ? 'Running…' : 'Try the current AI'}
         </button>
         <span className="meta">{versionId ? <>Against <code>{versionId}</code>. The refund tool is simulated.</> : 'Active memory is not loaded.'}</span>
       </div>

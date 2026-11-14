@@ -34,6 +34,7 @@ function writeUrl(candidateId: string | null, runId: string | null) {
 }
 
 export function App() {
+  const [view, setView] = useState<'review' | 'live'>(() => new URLSearchParams(window.location.search).has('execution') ? 'live' : 'review');
   const [health, setHealth] = useState<Health | null>(null);
   const [active, setActive] = useState<ActiveMemory | null>(null);
   const [history, setHistory] = useState<History | null>(null);
@@ -214,7 +215,11 @@ export function App() {
         </div>
       )}
       <Header health={health} active={active} />
-      <WorkflowGuide source={source} candidate={candidate} run={run} />
+      <nav className="workspace-tabs" aria-label="Workspace">
+        <button type="button" aria-pressed={view === 'review'} onClick={() => setView('review')}>Review a proposed memory</button>
+        <button type="button" aria-pressed={view === 'live'} onClick={() => setView('live')}>Approved memories and current AI</button>
+      </nav>
+      <div hidden={view !== 'review'}><WorkflowGuide source={source} candidate={candidate} run={run} /></div>
       {error && (
         <div className="error" role="alert">
           <span>{error}</span>
@@ -222,7 +227,7 @@ export function App() {
         </div>
       )}
       {busy && <div className="busy" role="status">{busy}</div>}
-      <main className="columns">
+      <main className="columns review-flow" hidden={view !== 'review'}>
         <SourcePanel
           source={source}
           candidate={candidate}
@@ -234,11 +239,12 @@ export function App() {
         <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
         <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
       </main>
-      <div className="live-divider"><span>AFTER THE CHECKPOINT</span><h2>Memory in use</h2><p>Inspect what is active, or try a single request. These live trials do not count as admission evidence.</p></div>
+      <section hidden={view !== 'live'} aria-label="Approved memory workspace"><div className="live-divider"><span>AFTER THE CHECKPOINT</span><h2>Memory in use</h2><p>Inspect what is active, or try a single request. These live trials do not count as admission evidence.</p></div>
       <div className="governed">
         <MemoryPanel memory={memory} problem={memoryProblem} disabled={busy !== null} onRevoke={onRevoke} onRefresh={() => void refreshShared()} />
         <ActiveTaskPanel versionId={memory?.version_id ?? active?.version_id ?? null} disabled={busy !== null} onStale={() => void refreshShared()} />
       </div>
+      </section>
       <Footer history={history} active={active} run={run} mode={api.mode} />
     </div>
   );
