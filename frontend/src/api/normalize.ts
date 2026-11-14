@@ -82,6 +82,7 @@ export function runFromWire(value: DTO['Run']): Run {
     model_config: { provider: string(value.config, 'provider') ?? 'unknown', agent_model: string(value.config, 'agent_model') ?? 'unknown',
       temperature: typeof value.config.temperature === 'number' ? value.config.temperature : null },
     usage: { model_calls: number(value.usage, 'model_calls'), input_tokens: number(value.summary, 'input_tokens'),
+      reported: { model_calls: typeof value.usage.model_calls === 'number', input_tokens: typeof value.summary.input_tokens === 'number', output_tokens: typeof value.summary.output_tokens === 'number' },
       output_tokens: number(value.summary, 'output_tokens'), latency_ms: number(value.usage, 'elapsed_ms') || number(value.summary, 'latency_ms') },
     recorded: value.live === false, created_at: value.created_at, completed_at: null,
     // Old runs carry no retrieval provenance; show that as missing, never invent it.

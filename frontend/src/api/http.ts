@@ -55,6 +55,7 @@ export const httpApi: MembraneApi = {
   },
   getSource: (sourceId: string) => request<DTO['Source']>(`/sources/${id(sourceId)}`).then(sourceFromWire),
   createCandidate: (input) => request<DTO['Candidate']>('/candidates', json(input)).then(candidateFromWire),
+  listCandidates: () => request<DTO['CandidateList']>('/candidates').then(value => ({ items: value.items.map(candidateFromWire), truncated: value.truncated })),
   getCandidate: (candidateId: string) => request<DTO['Candidate']>(`/candidates/${id(candidateId)}`).then(candidateFromWire),
   startRun: (candidateId: string) => request(`/candidates/${id(candidateId)}/runs`, json({})),
   getRun: (runId: string) => request<DTO['Run']>(`/runs/${id(runId)}`).then(runFromWire),

@@ -14,7 +14,9 @@ import {
 import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
 import { ActiveTaskPanel, MemoryPanel } from './governed';
 import { describeError } from './util';
-import { WorkflowGuide } from './workflow';
+import { UseProgress, QuickTest } from './SimpleUse';
+import { Dashboard, type DashboardPanel } from './Dashboard';
+import './workspace.css';
 import { ScopeExperimentPanel } from './features/memory-lab/ScopeExperimentPanel';
 
 const POLL_MS = 2000;
@@ -34,8 +36,16 @@ function writeUrl(candidateId: string | null, runId: string | null) {
   window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname);
 }
 
+function workspaceRoute() {
+  const params = new URLSearchParams(window.location.search);
+  const panel = params.get('panel');
+  return { view: (params.get('page') === 'dashboard' || (!params.has('page') && params.has('execution')) ? 'dashboard' : 'use') as 'use' | 'dashboard',
+    panel: (['overview', 'evidence', 'experiments', 'memory'].includes(panel ?? '') ? panel : params.has('execution') ? 'memory' : 'overview') as DashboardPanel };
+}
+
 export function App() {
-  const [view, setView] = useState<'review' | 'live'>(() => new URLSearchParams(window.location.search).has('execution') ? 'live' : 'review');
+  const [view, setView] = useState(workspaceRoute().view);
+  const [dashboardPanel, setDashboardPanel] = useState<DashboardPanel>(workspaceRoute().panel);
   const [health, setHealth] = useState<Health | null>(null);
   const [active, setActive] = useState<ActiveMemory | null>(null);
   const [history, setHistory] = useState<History | null>(null);
@@ -208,47 +218,53 @@ export function App() {
       }
     });
 
+  const navigate = (next: 'use' | 'dashboard', panel: DashboardPanel = dashboardPanel) => {
+    setView(next); setDashboardPanel(panel);
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', next);
+    if (next === 'dashboard') url.searchParams.set('panel', panel);
+    else url.searchParams.delete('panel');
+    window.history.pushState(null, '', url);
+  };
+  useEffect(() => {
+    const onPop = () => {
+      const next = workspaceRoute(); setView(next.view); setDashboardPanel(next.panel);
+      const p = new URLSearchParams(window.location.search);
+      if ((p.get('candidate') ?? null) !== (candidate?.id ?? null) || (p.get('run') ?? null) !== (run?.id ?? null)) window.location.reload();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [candidate?.id, run?.id]);
+  const selectSaved = (id: string) => void act('Loading saved evidence...', async () => {
+    const next = await api.getCandidate(id);
+    const [nextSource, nextRun] = await Promise.all([api.getSource(next.source_id), next.latest_run_id ? api.getRun(next.latest_run_id) : Promise.resolve(null)]);
+    if (nextRun && nextRun.candidate_id !== next.id) throw new Error('Saved run belongs to another proposal.');
+    setSource(nextSource); setCandidate(next); setRun(nextRun);
+  });
+
   return (
     <div className="app">
-      {api.mode === 'synthetic' && (
-        <div className="synthetic-banner" role="status">
-          SYNTHETIC MODE: nothing on this page is real evidence. No model ran and Atlas was not contacted.
-        </div>
-      )}
-      <Header health={health} active={active} />
+      {api.mode === 'synthetic' && <div className="synthetic-banner" role="status">SYNTHETIC MODE: nothing on this page is real evidence. No model ran and Atlas was not contacted.</div>}
+      <Header health={health} active={active} compact={view === 'use'} />
       <nav className="workspace-tabs" aria-label="Workspace">
-        <button type="button" aria-pressed={view === 'review'} onClick={() => setView('review')}>Review a proposed memory</button>
-        <button type="button" aria-pressed={view === 'live'} onClick={() => setView('live')}>Approved memories and current AI</button>
+        <button type="button" aria-pressed={view === 'use'} onClick={() => navigate('use')}>Upload and test</button>
+        <button type="button" aria-pressed={view === 'dashboard'} onClick={() => navigate('dashboard')}>Dashboard</button>
       </nav>
-      <div hidden={view !== 'review'}><WorkflowGuide source={source} candidate={candidate} run={run} /></div>
-      {error && (
-        <div className="error" role="alert">
-          <span>{error}</span>
-          <button type="button" className="link" onClick={() => setError(null)}>Dismiss</button>
-        </div>
-      )}
+      {error && <div className="error" role="alert"><span>{error}</span><button type="button" className="link" onClick={() => setError(null)}>Dismiss</button></div>}
       {busy && <div className="busy" role="status">{busy}</div>}
-      <main className="columns review-flow" hidden={view !== 'review'}>
-        <SourcePanel
-          source={source}
-          candidate={candidate}
-          disabled={busy !== null}
-          onUpload={onUpload}
-          onAudioSource={s => { setSource(s); setCandidate(null); setRun(null); }}
-          onStage={onStage}
-          onRevise={onRevise}
-        />
-        <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
-        <ScopeExperimentPanel candidate={candidate} baseVersionId={active?.version_id ?? null} disabled={busy !== null} />
-        <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
+      <main className="use-shell" hidden={view !== 'use'} aria-label="Upload and test workspace">
+        <UseProgress source={source} candidate={candidate} run={run} />
+        <SourcePanel source={source} candidate={candidate} disabled={busy !== null || view !== 'use'} onUpload={onUpload}
+          onAudioSource={s => { setSource(s); setCandidate(null); setRun(null); }} onStage={onStage} onRevise={onRevise} />
+        <QuickTest candidate={candidate} run={run} disabled={busy !== null} onRun={onRun} onDetails={() => navigate('dashboard', 'evidence')} />
+        {run && runDone && <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />}
       </main>
-      <section hidden={view !== 'live'} aria-label="Approved memory workspace"><div className="live-divider"><span>AFTER THE CHECKPOINT</span><h2>Memory in use</h2><p>Inspect what is active, or try a single request. These live trials do not count as admission evidence.</p></div>
-      <div className="governed">
-        <MemoryPanel memory={memory} problem={memoryProblem} disabled={busy !== null} onRevoke={onRevoke} onRefresh={() => void refreshShared()} />
-        <ActiveTaskPanel versionId={memory?.version_id ?? active?.version_id ?? null} disabled={busy !== null} onStale={() => void refreshShared()} />
-      </div>
-      </section>
-      <Footer history={history} active={active} run={run} mode={api.mode} />
+      <Dashboard visible={view === 'dashboard'} panel={dashboardPanel} onPanel={panel => navigate('dashboard', panel)} candidate={candidate} run={run}
+        history={history} memory={memory} health={health} onSelectCandidate={selectSaved} onUse={() => navigate('use')}
+        evidence={<><RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} /><Footer history={history} active={active} run={run} mode={api.mode} /></>}
+        experiments={<ScopeExperimentPanel candidate={candidate} baseVersionId={active?.version_id ?? null} disabled={busy !== null} />}
+        memoryTools={<div className="governed"><MemoryPanel memory={memory} problem={memoryProblem} disabled={busy !== null} onRevoke={onRevoke} onRefresh={() => void refreshShared()} />
+          <ActiveTaskPanel versionId={memory?.version_id ?? active?.version_id ?? null} disabled={busy !== null} onStale={() => void refreshShared()} /></div>} />
     </div>
   );
 }

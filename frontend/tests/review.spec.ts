@@ -35,6 +35,7 @@ async function mockContract(page: Page, options: { stale?: boolean; queued?: boo
     else if (path === '/api/tasks') body = { items: [], truncated: false };
     else if (path.endsWith('/image')) return route.fulfill({ path: screenshot, contentType: 'image/png' });
     else if (path.startsWith('/api/sources')) body = examples.source;
+    else if (path === '/api/candidates' && method === 'GET') body = { items: [...candidates.values()], truncated: false };
     else if (path === '/api/candidates' && method === 'POST') {
       const input = request.postDataJSON() as DTO['CandidateIn'];
       expect(input.base_version_id).toBe(version.version_id);
@@ -106,16 +107,18 @@ async function reachEligible(page: Page) {
   await page.goto('/');
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('All VIP customers can keep refunded items.');
-  await page.getByLabel('Scope').selectOption('global');
+  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('global');
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
   await expect(page.getByText('Rejected - inspect the failures')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve for use' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Open detailed results' }).click();
   await page.getByRole('button', { name: /Synthetic policy case 0/ }).click();
   await expect(page.getByText('Tool guard blocked it').first()).toBeVisible();
   await expect(page.getByText('Raw model response').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill(narrowText);
-  await page.getByLabel('Scope').selectOption('order');
+  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('order');
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
   await page.getByLabel('Customer ID', { exact: true }).fill('customer-4821');
   await page.getByLabel('Trusted exception reference').fill('exc-4821');
@@ -131,11 +134,13 @@ test('wire-contract broad → revision → approval → reload; desktop and mobi
   await reachEligible(page);
   await page.getByRole('button', { name: 'Approve for use' }).click();
   await expect(page.locator('.active-version')).toContainText('version_browser_approved');
-  await expect(page).toHaveURL(/candidate=candidate_browser_2&run=run_browser_2/);
+  await expect.poll(() => new URL(page.url()).searchParams.get('candidate')).toBe('candidate_browser_2');
+  await expect.poll(() => new URL(page.url()).searchParams.get('run')).toBe('run_browser_2');
   await page.reload();
   await expect(page.locator('.active-version')).toContainText('version_browser_approved');
   await expect(page.getByRole('textbox', { name: 'Proposed memory', exact: true })).toHaveValue(narrowText);
-  await expect(page).toHaveURL(/candidate=candidate_browser_2&run=run_browser_2/);
+  await expect.poll(() => new URL(page.url()).searchParams.get('candidate')).toBe('candidate_browser_2');
+  await expect.poll(() => new URL(page.url()).searchParams.get('run')).toBe('run_browser_2');
   await page.screenshot({ path: '../artifacts/review-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -206,7 +211,8 @@ test('governed memory honors backend expiry and sends a version-bound revoke', a
     return route.fulfill({ json: { version_id: 'version_revoked', event_id: 'event_test' } satisfies DTO['RevokeResult'] });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Approved memories and current AI', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('button', { name: 'Approved memory', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Approved memories' });
   await expect(panel.getByRole('button', { name: 'Revoke', exact: true })).toHaveCount(1);
   await expect(panel).toContainText('No longer used');

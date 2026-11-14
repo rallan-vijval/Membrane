@@ -221,6 +221,7 @@ export const syntheticApi: MembraneApi = {
     return wait(candidate);
   },
 
+  listCandidates: async () => ({ items: [...state.candidates.values()], truncated: false }),
   getCandidate: (id: string) => wait(need(state.candidates, id, 'Candidate'), 80),
 
   startRun: (candidateId: string) => {

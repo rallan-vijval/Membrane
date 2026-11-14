@@ -125,7 +125,7 @@ export interface Run {
   reasons: string[];
   errors: string[];
   model_config: { provider: string; agent_model: string; temperature: number | null };
-  usage: { model_calls: number; input_tokens: number; output_tokens: number; latency_ms: number };
+  usage: { model_calls: number; input_tokens: number; output_tokens: number; latency_ms: number; reported?: { model_calls: boolean; input_tokens: boolean; output_tokens: boolean } };
   /** true when the evidence is a stored recording, not a live model run. */
   recorded: boolean;
   created_at: string;
@@ -256,6 +256,7 @@ export interface MembraneApi {
   getSource(id: string): Promise<Source>;
   createCandidate(input: { source_id: string; text: string; scope: Scope; base_version_id: string; ttl_seconds: number }): Promise<Candidate>;
   getCandidate(id: string): Promise<Candidate>;
+  listCandidates(): Promise<{ items: Candidate[]; truncated: boolean }>;
   startRun(candidateId: string): Promise<{ run_id: string }>;
   getRun(id: string): Promise<Run>;
   revise(candidateId: string, input: { text: string; scope: Scope; ttl_seconds: number }): Promise<Candidate>;

@@ -35,6 +35,7 @@ async function mock(page: Page) {
       extracted_text: 'Corrected order 4821 only', proposed_text: 'Order 4821 exception only', provenance: { model: 'TEST', original_transcript: voice.transcript } } });
     if (path.endsWith('/audio')) return route.fulfill({ contentType: 'audio/wav', body: Buffer.alloc(44) });
     if (path.startsWith('/api/sources')) return route.fulfill({ status: method === 'POST' ? 201 : 200, json: examples.source });
+    if (path === '/api/candidates' && method === 'GET') return route.fulfill({ json: { items: candidate ? [candidate] : [], truncated: false } });
     if (path === '/api/candidates') { candidate = { ...examples.candidate_staged, ...r.postDataJSON(), candidate_id: 'candidate_voice_scope' }; return route.fulfill({ status: 201, json: candidate }); }
     if (path.endsWith('/experiments/scope')) return route.fulfill({ status: 202, json: { experiment_id: job.experiment_id } });
     if (path === '/api/experiments/experiment_test') { reads++; return route.fulfill({ json: reads === 1 ? { ...job, status: 'queued', progress: { completed: 0, total: 28 }, cases: [] } : job }); }
@@ -103,14 +104,44 @@ test('scope experiment polls and reloads evidence without unlocking approval or 
   await page.goto('/');
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('button', { name: 'Scope experiments', exact: true }).click();
   await page.getByRole('button', { name: /Explore this memory/ }).click();
   await expect(page.getByText('Exploratory experiment: completed', { exact: false })).toBeVisible({ timeout: 10000 });
   await page.getByText('Unverified owner - unchanged-safe', { exact: true }).click();
   await expect(page.locator('.scope-scenario').filter({ has: page.getByText('Unverified owner - unchanged-safe', { exact: true }) }).getByText('Verified ownership required').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Approve for use' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Approve for use' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(page).toHaveURL(/experiment=experiment_test/);
   await page.reload();
   await expect(page.getByText('Exploratory experiment: completed', { exact: false })).toBeVisible();
   expect(calls.filter(c => c.path.endsWith('/experiments/scope') && c.method === 'POST')).toHaveLength(1);
   expect(calls.some(c => c.path.endsWith('/approve') || c.path.endsWith('/runs'))).toBe(false);
+});
+
+test('leaving upload page stops recording and discards hidden capture', async ({ page }) => {
+  const calls = await mock(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } });
+    class Recorder {
+      static isTypeSupported() { return true; }
+      state = 'inactive'; mimeType = 'audio/webm';
+      ondataavailable: ((e: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      start() { this.state = 'recording'; }
+      stop() { this.state = 'inactive'; queueMicrotask(() => { this.ondataavailable?.({ data: new Blob(['TEST']) }); this.onstop?.(); }); }
+    }
+    window.MediaRecorder = Recorder as unknown as typeof MediaRecorder;
+  });
+  await page.goto('/');
+  await page.getByText('Use a voice note instead', { exact: true }).click();
+  await page.getByRole('button', { name: 'Record a voice note' }).click();
+  await expect(page.getByRole('button', { name: 'Stop recording', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('button', { name: 'Upload and test', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Transcribe audio', exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Selected audio playback')).toHaveCount(0);
+  expect(calls.some(c => c.path === '/api/audio-sources')).toBe(false);
 });

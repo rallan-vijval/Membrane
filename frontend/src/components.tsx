@@ -62,14 +62,14 @@ function HealthItem({ name, item }: { name: string; item: IntegrationHealth | un
   );
 }
 
-export function Header({ health, active }: { health: Health | null; active: ActiveMemory | null }) {
+export function Header({ health, active, compact = false }: { health: Health | null; active: ActiveMemory | null; compact?: boolean }) {
   return (
     <header className="header">
       <div>
         <h1>Membrane</h1>
         <p>See what a new memory will make your agent do, before it does it.</p>
       </div>
-      <div className="header-right">
+      <div className="header-right" hidden={compact}>
         <div className="active-version">
           Active memory: <strong>{active ? `${active.version_id} (${active.entries.length} ${active.entries.length === 1 ? 'entry' : 'entries'})` : 'unknown'}</strong>
         </div>
@@ -231,6 +231,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
         <p className="empty">Add a source to extract a proposed memory. A PDF sends page 1; a video sends the one frame you pick.</p>
       )}
 
+      <div hidden={!source}>
       <label className="field">
         <span>Proposed memory</span>
         <textarea aria-label="Proposed memory" value={text} onChange={(e) => setText(e.target.value)} rows={3} disabled={disabled || !source || !editorReady} />
@@ -238,7 +239,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
       <div className="row">
         <label className="field">
           <span>Scope</span>
-          <select value={kind} onChange={(e) => setKind(e.target.value as Scope['kind'])} disabled={disabled || !source}>
+          <select aria-label="Scope" value={kind} onChange={(e) => setKind(e.target.value as Scope['kind'])} disabled={disabled || !source}>
             <option value="global">Global</option>
             <option value="order">One order</option>
             <option value="preference">Preference</option>
@@ -286,7 +287,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
       </div>
 
       {candidate && (
-        <dl className="facts">
+        <details><summary>Source and version details</summary><dl className="facts">
           <dt>Proposal</dt>
           <dd><code>{candidate.id}</code> <Pill value={candidate.state} /></dd>
           <dt>Scope</dt>
@@ -298,8 +299,9 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSour
             {candidate.parent_candidate_id ? <>revision of <code>{candidate.parent_candidate_id}</code></> : 'original'} · base{' '}
             <code>{candidate.base_version_id}</code>
           </dd>
-        </dl>
+        </dl></details>
       )}
+      </div>
     </section>
   );
 }
@@ -341,7 +343,7 @@ const CLASS_TEXT: Record<Classification, string> = {
   inconclusive: 'Inconclusive',
 };
 
-function ExecutionDetail({ runId, caseId, exec, voiceReady }: { runId: string; caseId: string; exec: Execution; voiceReady: boolean }) {
+export function ExecutionDetail({ runId, caseId, exec, voiceReady }: { runId: string; caseId: string; exec: Execution; voiceReady: boolean }) {
   const [audio, setAudio] = useState<{ url: string; transcript: string } | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
   const listen = async () => {
@@ -601,7 +603,7 @@ export function Footer({ history, active, run, mode }: { history: History | null
               <dl className="facts">
                 <dt>Run</dt><dd><code>{run.id}</code> <span className="tag">{mode === 'synthetic' ? 'synthetic' : run.recorded ? 'recorded' : 'live'}</span></dd>
                 <dt>Model</dt><dd>{run.model_config.provider} / {run.model_config.agent_model} · temperature {run.model_config.temperature ?? 'default'}</dd>
-                <dt>Usage</dt><dd>{run.usage.model_calls} calls · {run.usage.input_tokens + run.usage.output_tokens} tokens · {(run.usage.latency_ms / 1000).toFixed(1)} s</dd>
+                <dt>Usage</dt><dd>{run.usage.reported?.model_calls === false ? 'Calls not reported' : `${run.usage.model_calls} calls`} · {run.usage.reported?.input_tokens === false || run.usage.reported?.output_tokens === false ? 'Tokens not reported' : `${run.usage.input_tokens + run.usage.output_tokens} tokens`}</dd>
                 <dt>Started</dt><dd>{when(run.created_at)}{run.completed_at ? ` · finished ${when(run.completed_at)}` : ''}</dd>
               </dl>
             ) : <p className="empty">No run selected.</p>}

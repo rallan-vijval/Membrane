@@ -1,0 +1,76 @@
+/* Page architecture and functional charts. Visual palette comes from existing tokens. */
+.use-shell { max-width: 900px; margin: 24px auto; padding: 0 24px; display: grid; gap: 18px; }
+.use-progress { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.use-progress li { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-soft); }
+.use-progress li > span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--rule); flex-shrink: 0; }
+.use-progress li[aria-current="step"] { color: var(--membrane); font-weight: 700; }
+.use-progress li[aria-current="step"] > span { background: var(--membrane-soft); }
+.use-shell .source img { max-height: 150px; max-width: 260px; object-fit: contain; }
+.use-shell .facts { margin: 10px 0; }
+.quick-test { display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+.quick-test > div:first-child { flex: 1; }
+.quick-comparison { display: flex; gap: 18px; align-items: center; }
+.quick-comparison strong { display: inline-grid; place-items: center; width: 32px; height: 32px; background: var(--membrane-soft); border-radius: 8px; margin-right: 5px; }
+.decision-progress { position: relative; width: 112px; height: 112px; flex-shrink: 0; }
+.decision-progress svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.decision-progress circle { fill: none; stroke-width: 8; }
+.ring-track { stroke: var(--rule); }
+.ring-value { stroke: var(--membrane); }
+.decision-progress > span { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.decision-progress strong { font-size: 20px; }
+.decision-progress small { color: var(--ink-soft); }
+.dashboard-shell { max-width: 1440px; margin: 24px auto; padding: 0 32px 24px; }
+.dashboard-heading { display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
+.dashboard-heading h2, .dashboard-heading h3 { margin-bottom: 4px; }
+.dashboard-tabs { display: flex; gap: 8px; margin: 18px 0; flex-wrap: wrap; }
+.dashboard-tabs button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.dashboard-source { margin-bottom: 18px; display: grid; gap: 8px; }
+.dashboard-source .field { margin: 0; max-width: 700px; }
+.dashboard-overview { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+.dashboard-overview .decision-map { grid-column: 1 / -1; }
+.bar-chart { display: grid; gap: 9px; margin: 14px 0; }
+.chart-row { display: grid; grid-template-columns: minmax(105px,1fr) minmax(30px,2fr) 30px; align-items: center; gap: 10px; background: transparent; color: var(--ink); border: 0; text-align: left; padding: 7px; font-weight: 400; }
+.chart-row:hover:not(:disabled), .chart-row[aria-pressed="true"] { background: var(--membrane-soft); color: var(--ink); }
+.chart-track { height: 16px; background: var(--mist); border-radius: 4px; overflow: hidden; }
+.chart-track > span { display: block; height: 100%; background: var(--membrane); min-width: 0; }
+.tone-failure .chart-track > span { background: var(--block); }
+.tone-uncertain .chart-track > span { background: var(--hold); }
+.tone-safe .chart-track > span { background: var(--pass); }
+.usage-grid { display: grid; gap: 18px; grid-template-columns: repeat(3,minmax(0,1fr)); padding: 18px 0; }
+.usage-grid dt { color: var(--ink-soft); font-size: 13px; }
+.usage-grid dd { margin: 5px 0; font: 600 25px var(--mono); overflow-wrap: anywhere; }
+.map-legend { display: flex; gap: 14px; margin: 12px 0; flex-wrap: wrap; font-size: 13px; }
+.matrix-scroll { overflow-x: auto; max-width: 100%; }
+.decision-matrix { width: 100%; border-collapse: collapse; }
+.decision-matrix caption { text-align: left; padding: 0 0 12px; color: var(--ink-soft); font-size: 13px; }
+.decision-matrix th { text-align: left; font-size: 13px; padding: 8px; }
+.decision-matrix td { padding: 5px; border: 0; }
+.decision-matrix tbody th { font-weight: 400; width: 34%; }
+.decision-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 100%; min-width: 85px; min-height: 58px; padding: 6px; background: var(--mist); color: var(--ink); border: 2px solid transparent; font-size: 11px; }
+.decision-cell > span:first-child { font-size: 20px; }
+.decision-cell.tone-safe { background: var(--pass-soft); color: var(--pass); }
+.decision-cell.tone-failure { background: var(--block-soft); color: var(--block); }
+.decision-cell.tone-uncertain { background: var(--hold-soft); color: var(--hold); }
+.decision-cell[aria-pressed="true"] { border-color: currentColor; }
+.decision-cell:hover:not(:disabled) { outline: 2px solid var(--ink); background: var(--membrane-soft); color: var(--ink); }
+.selected-decision { margin-top: 16px; padding: 14px; border: 1px solid var(--rule); border-radius: 8px; }
+.availability-chart { width: 100%; display: grid; gap: 12px; padding: 14px 0; color: var(--ink); background: transparent; border: 0; }
+.availability-chart:hover:not(:disabled) { color: var(--ink); background: var(--membrane-soft); }
+.availability-track { display: flex; height: 26px; gap: 3px; background: var(--mist); border-radius: 5px; overflow: hidden; }
+.availability-active { background: var(--pass); }
+.availability-expired { background: var(--hold); }
+.activity-list { list-style: none; padding: 0; display: grid; gap: 10px; font-size: 13px; }
+.dashboard-shell .governed { padding: 0; }
+.dashboard-shell footer { margin: 18px 0; }
+@media (max-width: 720px) { .use-shell { padding: 0 16px; } .use-progress { grid-template-columns: repeat(2,minmax(0,1fr)); } .dashboard-shell { padding: 0 16px 20px; } .dashboard-overview { grid-template-columns: minmax(0,1fr); } .usage-grid dd { font-size: 20px; } .quick-test { flex-wrap: wrap; } }
+/* Preserve a labeled comparison matrix instead of the legacy mobile table stack. */
+.decision-matrix { display: table; min-width: 650px; }
+.decision-matrix caption { display: table-caption; }
+.decision-matrix thead { display: table-header-group; }
+.decision-matrix tbody { display: table-row-group; }
+.decision-matrix tr { display: table-row; }
+.decision-matrix th, .decision-matrix td { display: table-cell; }
+.matrix-scroll:focus-visible { outline: 2px solid var(--membrane); }
+.matrix-scroll-hint { display: none; }
+@media (max-width: 720px) { .matrix-scroll-hint { display: block; color: var(--ink-soft); font-size: 12px; margin: 8px 0; } }
+.decision-matrix tbody th { position: sticky; left: 0; z-index: 1; background: var(--surface); }

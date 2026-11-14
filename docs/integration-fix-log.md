@@ -53,3 +53,8 @@ Validation: production build and all 15 browser tests passed on the final code; 
 ## Voice sources and scope microscope feature branch
 
 Implemented on feat/memory-experiments-voice-sources. Added bounded ElevenLabs STT with upload/recording, explicit transcript review, text-based DeepSeek proposal extraction, independent health and usage caps. Added separate immutable seven-scenario exploratory experiments with 28 initial decisions, 56-call ceiling, leased recovery, policy-authored checks and no admission/activation authority. Published OpenAPI, synthetic examples, generated types, isolated frontend feature modules and a small template integration surface. No CSS redesign. Setup, limits, live results and frontend integration details are in voice-scope-handoff.md. ElevenLabs live acceptance is pending the user's credentials; remaining functionality is implemented and verified. Local .env credentials remain ignored.
+
+
+## Simple use page and detailed dashboard
+
+Split the default upload/record/review/test/decision flow from the dashboard. Added actual-data outcome bars, decision matrix drilldown, reported usage, bounded proposal stats, memory availability and review activity. URL/back/reload and microphone cleanup are covered. No backend/approval changes or new paid calls. UI structure and template handoff are in ui-architecture-handoff.md. Production build and 23 browser checks passed.

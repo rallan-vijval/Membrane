@@ -82,6 +82,9 @@ export function VoiceSourceIntake({ onSourceReady, disabled = false }: { onSourc
     stream.current?.getTracks().forEach(track => track.stop());
     setRecording(false);
   };
+  useEffect(() => {
+    if (disabled && recorder.current?.state === 'recording') stop(true);
+  }, [disabled]);
   const record = async () => {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { setProblem('Recording is unavailable in this browser. Upload an audio file instead.'); return; }
     setProblem(null); setBusy(true);

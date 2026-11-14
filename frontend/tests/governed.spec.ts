@@ -66,6 +66,7 @@ async function mock(page: Page, options: Options = {}) {
       retrieval: retrieval('development-01'), execution: execution(true), config: {}, usage: {} } });
     if (path.endsWith('/image')) return route.fulfill({ path: screenshot, contentType: 'image/png' });
     if (path.startsWith('/api/sources')) return route.fulfill({ status: method === 'POST' ? 201 : 200, json: examples.source });
+    if (path === '/api/candidates' && method === 'GET') return route.fulfill({ json: { items: candidate ? [candidate] : [], truncated: false } });
     if (path === '/api/candidates' && method === 'POST') {
       candidate = { ...examples.candidate_staged, candidate_id: 'candidate_gov_1', ...(body as object), status: 'staged', latest_run_id: null };
       return route.fulfill({ status: 201, json: candidate });
@@ -90,7 +91,7 @@ async function mock(page: Page, options: Options = {}) {
 async function stage(page: Page, minutes?: string) {
   await page.getByLabel(FILE_LABEL).setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('All VIP customers can keep refunded items.');
-  await page.getByLabel('Scope').selectOption('global');
+  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('global');
   if (minutes) await page.getByLabel('Lifetime after approval (minutes)').fill(minutes);
   await page.getByRole('button', { name: 'Save for testing', exact: true }).click();
 }
@@ -100,7 +101,7 @@ test('lifetime is sent as ttl_seconds and an order scope needs its customer', as
   await page.goto('/');
   await page.getByLabel(FILE_LABEL).setInputFiles(screenshot);
   await page.getByRole('textbox', { name: 'Proposed memory', exact: true }).fill('Order 4821 only.');
-  await page.getByLabel('Scope').selectOption('order');
+  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('order');
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
   await page.getByLabel('Customer ID', { exact: true }).fill(''); // the extraction may have proposed one
   const stageButton = page.getByRole('button', { name: 'Save for testing', exact: true });
@@ -110,6 +111,7 @@ test('lifetime is sent as ttl_seconds and an order scope needs its customer', as
   await expect(stageButton).toBeDisabled();
   await page.getByLabel('Lifetime after approval (minutes)').fill('15');
   await stageButton.click();
+  await page.getByText('Source and version details', { exact: true }).click();
   await expect(page.getByText('15 min after approval')).toBeVisible();
   const created = calls.find((c) => c.method === 'POST' && c.path === '/api/candidates')!.body as { ttl_seconds: number; scope: { customer_id: string } };
   expect(created.ttl_seconds).toBe(900);
@@ -119,7 +121,8 @@ test('lifetime is sent as ttl_seconds and an order scope needs its customer', as
 test('memory panel shows availability from the backend and revokes with base version, reason and key', async ({ page }) => {
   const calls = await mock(page);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Approved memories and current AI', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('button', { name: 'Approved memory', exact: true }).click();
   const panel = page.locator('section', { has: page.getByRole('heading', { name: 'Approved memories' }) });
   await expect(panel.locator('.memory')).toHaveCount(3);
   await expect(panel.locator('.memory-expired')).toContainText('An exception that has run out.');
@@ -139,7 +142,8 @@ test('memory panel shows availability from the backend and revokes with base ver
 test('a stale revoke shows the conflict and re-reads memory', async ({ page }) => {
   const calls = await mock(page, { staleRevoke: true });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Approved memories and current AI', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('button', { name: 'Approved memory', exact: true }).click();
   const target = page.locator('.memory', { hasText: 'Order 4821 may be refunded' });
   await target.getByRole('button', { name: 'Revoke' }).click();
   await target.getByLabel(/Reason for revoking/).fill('Exception withdrawn');
@@ -155,6 +159,7 @@ test('run details show retrieved memory apart from test selection, with the cand
   await page.goto('/');
   await stage(page);
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
+  await page.getByRole('button', { name: 'Open detailed results' }).click();
   await page.getByRole('button', { name: /Synthetic VIP case/ }).click();
   const evidence = page.locator('.retrieval');
   await expect(evidence).toContainText('exact scope');
@@ -169,6 +174,7 @@ test('a run without retrieval records says provenance is unavailable', async ({ 
   await page.goto('/');
   await stage(page);
   await page.getByRole('button', { name: 'Test this memory', exact: true }).click();
+  await page.getByRole('button', { name: 'Open detailed results' }).click();
   await page.getByRole('button', { name: /Synthetic VIP case/ }).click();
   await expect(page.locator('.retrieval')).toContainText('Retrieval provenance unavailable');
 });
@@ -176,7 +182,8 @@ test('a run without retrieval records says provenance is unavailable', async ({ 
 test('run with active memory sends the base version, shows the result, and reloads without a new run', async ({ page }) => {
   const calls = await mock(page);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Approved memories and current AI', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('button', { name: 'Approved memory', exact: true }).click();
   await page.getByLabel('Request').selectOption('development-01');
   await page.getByRole('button', { name: 'Try the current AI' }).click();
   const result = page.locator('.active-run').first();
