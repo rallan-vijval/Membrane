@@ -3,6 +3,7 @@ import {
   api,
   TERMINAL_RUN,
   type ActiveMemory,
+  type GovernedMemory,
   type Candidate,
   type Health,
   type History,
@@ -11,6 +12,7 @@ import {
   type Source,
 } from './api';
 import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
+import { ActiveTaskPanel, MemoryPanel } from './governed';
 import { describeError } from './util';
 
 const POLL_MS = 2000;
@@ -34,6 +36,8 @@ export function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [active, setActive] = useState<ActiveMemory | null>(null);
   const [history, setHistory] = useState<History | null>(null);
+  const [memory, setMemory] = useState<GovernedMemory | null>(null);
+  const [memoryProblem, setMemoryProblem] = useState<string | null>(null);
   const [source, setSource] = useState<Source | null>(null);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [run, setRun] = useState<Run | null>(null);
@@ -55,6 +59,13 @@ export function App() {
     if (hist.status === 'fulfilled') setHistory(hist.value);
     const firstFailure = [h, a, hist].find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
     if (firstFailure) fail(firstFailure.reason);
+    // Governed entries are a newer endpoint: report trouble inside its own panel, not as a page error.
+    try {
+      const entries = await api.memoryEntries();
+      if (alive.current) { setMemory(entries); setMemoryProblem(null); }
+    } catch (err) {
+      if (alive.current) { setMemory(null); setMemoryProblem(`Could not load governed memory: ${describeError(err)}`); }
+    }
   }, [fail]);
 
   // Initial load, including a reload with ?candidate=…&run=… in the URL.
@@ -140,18 +151,18 @@ export function App() {
       setRun(null);
     });
 
-  const onStage = (text: string, scope: Scope) =>
+  const onStage = (text: string, scope: Scope, ttlSeconds: number) =>
     act('Staging…', async () => {
       if (!source || !active) throw new Error('Upload a source first.');
-      const c = await api.createCandidate({ source_id: source.id, text, scope, base_version_id: active.version_id });
+      const c = await api.createCandidate({ source_id: source.id, text, scope, base_version_id: active.version_id, ttl_seconds: ttlSeconds });
       setCandidate(c);
       setRun(null);
     });
 
-  const onRevise = (text: string, scope: Scope) =>
+  const onRevise = (text: string, scope: Scope, ttlSeconds: number) =>
     act('Creating revision…', async () => {
       if (!candidate) return;
-      const child = await api.revise(candidate.id, { text, scope });
+      const child = await api.revise(candidate.id, { text, scope, ttl_seconds: ttlSeconds });
       setCandidate(child);
       setRun(null);
       await refreshShared();
@@ -183,6 +194,17 @@ export function App() {
       await refreshShared();
     });
 
+  const onRevoke = (memoryId: string, reason: string) =>
+    act('Revoking…', async () => {
+      if (!memory) return;
+      try {
+        // The base version makes a stale page fail with 409 instead of revoking against newer memory.
+        await api.revokeMemory(memoryId, { base_version_id: memory.version_id, reason });
+      } finally {
+        await refreshShared();
+      }
+    });
+
   return (
     <div className="app">
       {api.mode === 'synthetic' && (
@@ -210,6 +232,10 @@ export function App() {
         <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
         <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
       </main>
+      <div className="governed">
+        <MemoryPanel memory={memory} problem={memoryProblem} disabled={busy !== null} onRevoke={onRevoke} onRefresh={() => void refreshShared()} />
+        <ActiveTaskPanel versionId={memory?.version_id ?? active?.version_id ?? null} disabled={busy !== null} onStale={() => void refreshShared()} />
+      </div>
       <Footer history={history} active={active} run={run} mode={api.mode} />
     </div>
   );

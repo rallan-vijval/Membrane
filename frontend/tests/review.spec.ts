@@ -31,6 +31,8 @@ async function mockContract(page: Page, options: { stale?: boolean; queued?: boo
     } satisfies DTO['Health'];
     else if (path === '/api/memory/active') body = version;
     else if (path === '/api/history') body = { versions: [version], events: [], truncated: false } satisfies DTO['History'];
+    else if (path === '/api/memory/entries') body = { version_id: version.version_id, evaluated_at: '2026-11-14T17:00:00Z', items: [], truncated: false };
+    else if (path === '/api/tasks') body = { items: [], truncated: false };
     else if (path.endsWith('/image')) return route.fulfill({ path: screenshot, contentType: 'image/png' });
     else if (path.startsWith('/api/sources')) body = examples.source;
     else if (path === '/api/candidates' && method === 'POST') {
@@ -104,7 +106,7 @@ async function reachEligible(page: Page) {
   await page.goto('/');
   await page.getByLabel('Source file (image, PDF, text or video; synthetic data only)').setInputFiles(screenshot);
   await page.getByLabel('Candidate memory').fill('All VIP customers can keep refunded items.');
-  await page.getByRole('combobox').selectOption('global');
+  await page.getByLabel('Scope').selectOption('global');
   await page.getByRole('button', { name: 'Stage candidate', exact: true }).click();
   await page.getByRole('button', { name: 'Run behavior test', exact: true }).click();
   await expect(page.getByText('Should be quarantined')).toBeVisible();
@@ -113,7 +115,7 @@ async function reachEligible(page: Page) {
   await expect(page.getByText('Tool guard blocked it').first()).toBeVisible();
   await expect(page.getByText('Raw model response').first()).toBeVisible();
   await page.getByLabel('Candidate memory').fill(narrowText);
-  await page.getByRole('combobox').selectOption('order');
+  await page.getByLabel('Scope').selectOption('order');
   await page.getByLabel('Order ID', { exact: true }).fill('4821');
   await page.getByLabel('Customer ID', { exact: true }).fill('customer-4821');
   await page.getByLabel('Trusted exception reference').fill('exc-4821');

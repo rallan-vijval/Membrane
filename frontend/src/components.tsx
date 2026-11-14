@@ -4,6 +4,7 @@ import {
   type ActiveMemory,
   type Candidate,
   type CaseResult,
+  type CaseRetrieval,
   type Classification,
   type Execution,
   type Health,
@@ -13,7 +14,11 @@ import {
   type Scope,
   type Side,
   type Source,
+  TTL_DEFAULT_SECONDS,
+  TTL_MAX_SECONDS,
+  TTL_MIN_SECONDS,
 } from './api';
+import { RetrievalEvidence } from './governed';
 import { captureFrame, prepare } from './intake';
 import { attemptDiff, describeError } from './util';
 
@@ -21,6 +26,7 @@ import { attemptDiff, describeError } from './util';
 
 const STATUS_ICON: Record<string, string> = {
   ready: '●', unavailable: '✕', degraded: '▲', disabled: '○',
+  active: '●', expired: '▲', revoked: '✕',
   eligible: '✓', approved: '✓', quarantined: '✕', quarantine: '✕', inconclusive: '?',
   staged: '○', testing: '…', queued: '…', running: '…', completed: '✓', failed: '✕',
 };
@@ -69,6 +75,10 @@ export function Header({ health, active }: { health: Health | null; active: Acti
           <HealthItem name="Model" item={health?.model} />
           <HealthItem name="Search" item={health?.search} />
           <HealthItem name="Voice" item={health?.voice} />
+          {health?.embeddings && <HealthItem name="Embeddings" item={health.embeddings} />}
+          {health?.memory_search && <HealthItem name="Memory search" item={health.memory_search} />}
+          {health?.vision && <HealthItem name="Vision" item={health.vision} />}
+          {health?.tracing && <HealthItem name="Tracing" item={health.tracing} />}
         </ul>
       </div>
     </header>
@@ -82,8 +92,8 @@ interface SourcePanelProps {
   candidate: Candidate | null;
   disabled: boolean;
   onUpload: (file: File) => void;
-  onStage: (text: string, scope: Scope) => void;
-  onRevise: (text: string, scope: Scope) => void;
+  onStage: (text: string, scope: Scope, ttlSeconds: number) => void;
+  onRevise: (text: string, scope: Scope, ttlSeconds: number) => void;
 }
 
 export function SourcePanel({ source, candidate, disabled, onUpload, onStage, onRevise }: SourcePanelProps) {
@@ -92,6 +102,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
   const [orderId, setOrderId] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [exceptionId, setExceptionId] = useState('');
+  const [ttlMinutes, setTtlMinutes] = useState(String(TTL_DEFAULT_SECONDS / 60));
   const [over, setOver] = useState(false);
   const [reading, setReading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -142,12 +153,18 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
     setOrderId(seed.scope.kind === 'order' ? seed.scope.order_id : '');
     setCustomerId(seed.scope.kind === 'order' ? seed.scope.customer_id ?? '' : '');
     setExceptionId(seed.scope.kind === 'order' ? seed.scope.exception_id ?? '' : '');
+    // A revision starts from the lifetime of the candidate it revises.
+    if (candidate) setTtlMinutes(String(Math.round(candidate.ttl_seconds / 60)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedKey]);
 
   const scope: Scope = kind === 'order' ? { kind, order_id: orderId.trim(), customer_id: customerId.trim() || null,
     exception_id: exceptionId.trim() || null } : { kind };
-  const valid = text.trim().length > 0 && (kind !== 'order' || orderId.trim().length > 0);
+  const minutes = Number(ttlMinutes);
+  const ttlValid = Number.isInteger(minutes) && minutes * 60 >= TTL_MIN_SECONDS && minutes * 60 <= TTL_MAX_SECONDS;
+  // The backend requires an exact order AND customer for an order scope.
+  const scopeValid = kind !== 'order' || (orderId.trim().length > 0 && customerId.trim().length > 0);
+  const valid = text.trim().length > 0 && scopeValid && ttlValid;
 
   return (
     <section className="panel" aria-labelledby="source-h">
@@ -235,14 +252,24 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
         )}
       </div>
 
+      <label className="field">
+        <span>Lifetime after approval (minutes)</span>
+        <input type="number" inputMode="numeric" min={TTL_MIN_SECONDS / 60} max={TTL_MAX_SECONDS / 60} step={1} value={ttlMinutes}
+               onChange={(e) => setTtlMinutes(e.target.value)} disabled={disabled || !source} aria-describedby="ttl-help" />
+      </label>
+      <p className="meta" id="ttl-help">
+        {ttlValid ? 'The memory expires this long after it is approved, then stops being used.' : 'Enter a whole number of minutes from 1 to 1440.'}
+        {kind === 'order' && !scopeValid && ' An order scope needs both the order ID and the customer ID.'}
+      </p>
+
       <div className="actions">
         {!candidate && (
-          <button type="button" disabled={disabled || !source || !valid} onClick={() => onStage(text.trim(), scope)}>
+          <button type="button" disabled={disabled || !source || !valid} onClick={() => onStage(text.trim(), scope, minutes * 60)}>
             Stage candidate
           </button>
         )}
         {candidate && (
-          <button type="button" className="secondary" disabled={disabled || !valid || candidate.state === 'approved' || candidate.state === 'testing'} onClick={() => onRevise(text.trim(), scope)}>
+          <button type="button" className="secondary" disabled={disabled || !valid || candidate.state === 'approved' || candidate.state === 'testing'} onClick={() => onRevise(text.trim(), scope, minutes * 60)}>
             Save as revision
           </button>
         )}
@@ -254,6 +281,8 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
           <dd><code>{candidate.id}</code> <Pill value={candidate.state} /></dd>
           <dt>Scope</dt>
           <dd>{scopeLabel(candidate.scope)}</dd>
+          <dt>Lifetime</dt>
+          <dd>{Math.round(candidate.ttl_seconds / 60)} min after approval</dd>
           <dt>Lineage</dt>
           <dd>
             {candidate.parent_candidate_id ? <>revision of <code>{candidate.parent_candidate_id}</code></> : 'original'} · base{' '}
@@ -379,10 +408,10 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
                aria-label="Executions completed">
             <div style={{ width: `${run.progress.total ? (100 * run.progress.completed) / run.progress.total : 0}%` }} />
           </div>
-          <p className="meta">{run.progress.completed} of {run.progress.total} executions</p>
+          <p className="meta">{run.progress.completed} of {run.progress.total} executions{run.trace_url && <> · <a href={run.trace_url} target="_blank" rel="noreferrer">Open trace</a></>}</p>
 
           <details>
-            <summary>Why these {run.selection.length} cases</summary>
+            <summary>Why these {run.selection.length} test cases were picked</summary>
             <ul className="selection">
               {run.selection.map((s) => (
                 <li key={s.fixture_id}>
@@ -406,6 +435,8 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
                 const cls = c.classification ?? 'inconclusive';
                 return (
                   <CaseRows key={c.case_id} c={c} cls={cls} expanded={expanded} runId={run.id}
+                            retrieval={run.memory_retrieval.find((r) => r.case_id === c.case_id)} runHasProvenance={run.memory_retrieval.length > 0}
+                            candidateText={candidate && candidate.id === run.candidate_id ? candidate.text : null}
                             pickedBy={reasons.get(c.fixture_id)?.reason ?? null} voiceReady={voice?.status === 'ready' || voice?.status === 'degraded'}
                             onToggle={() => setOpen(expanded ? null : c.case_id)} />
                 );
@@ -419,8 +450,9 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
   );
 }
 
-function CaseRows({ c, cls, expanded, runId, pickedBy, voiceReady, onToggle }: {
+function CaseRows({ c, cls, expanded, runId, pickedBy, voiceReady, onToggle, retrieval, runHasProvenance, candidateText }: {
   c: CaseResult; cls: Classification; expanded: boolean; runId: string; pickedBy: string | null; voiceReady: boolean; onToggle: () => void;
+  retrieval: CaseRetrieval | undefined; runHasProvenance: boolean; candidateText: string | null;
 }) {
   const diff = c.classification ? caseDiff(c) : [];
   return (
@@ -448,6 +480,7 @@ function CaseRows({ c, cls, expanded, runId, pickedBy, voiceReady, onToggle }: {
         <tr className="detail">
           <td colSpan={5}>
             {c.check_reasons.length > 0 && <ul className="checks">{c.check_reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
+            <RetrievalEvidence retrieval={retrieval} runHasProvenance={runHasProvenance} candidateText={candidateText} />
             <div className="exec-grid">
               {[...c.executions]
                 .sort((a, b) => a.side.localeCompare(b.side) || a.repetition - b.repetition)
@@ -572,7 +605,7 @@ export function Footer({ history, active, run, mode }: { history: History | null
               <ol className="timeline">
                 {history.events.map((e) => (
                   <li key={e.id}>
-                    <Pill value={e.decision === 'approve' ? 'approved' : e.decision === 'quarantine' ? 'quarantined' : 'staged'} /> {e.decision} of <code>{e.candidate_id}</code> by {e.actor} (demo identity) {when(e.created_at)}
+                    <Pill value={e.decision === 'approve' ? 'approved' : e.decision === 'quarantine' ? 'quarantined' : e.decision === 'revoke' ? 'revoked' : 'staged'} /> {e.decision} of <code>{e.memory_id ?? e.candidate_id}</code> by {e.actor} (demo identity) {when(e.created_at)}
                     {e.reason && <div className="meta">{e.reason}</div>}
                   </li>
                 ))}

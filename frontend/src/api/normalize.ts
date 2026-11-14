@@ -1,6 +1,7 @@
 /** Explicit, typed wire-to-view adapters. Never synthesize provider evidence here. */
 import type { components } from './generated';
-import type { ActiveMemory, Candidate, Execution, Health, History, Run, Scope, SelectionReason, Source } from './types';
+import { TTL_DEFAULT_SECONDS, type ActiveMemory, type Candidate, type Execution, type Health, type History, type IntegrationHealth, type Run, type Scope, type SelectionReason, type Source } from './types';
+import { retrievalFromWire, type WireMemoryRetrieval } from './governedWire';
 
 type DTO = components['schemas'];
 const number = (obj: Record<string, unknown>, key: string) => typeof obj[key] === 'number' ? obj[key] as number : 0;
@@ -17,7 +18,19 @@ export const healthFromWire = (value: DTO['Health']): Health => ({
   model: { status: value.model.status, detail: value.model.reason },
   search: { status: value.search.status, detail: value.search.reason },
   voice: { status: value.voice.status, detail: value.voice.reason },
+  ...optionalHealth(value),
 });
+
+/** Components added in the governed-memory phase; present only when the backend reports them. */
+function optionalHealth(value: DTO['Health']): Partial<Health> {
+  const loose = value as unknown as Record<string, { status?: IntegrationHealth['status']; reason?: string } | undefined>;
+  const out: Partial<Health> = {};
+  for (const key of ['embeddings', 'memory_search', 'tracing', 'vision'] as const) {
+    const item = loose[key];
+    if (item?.status) out[key] = { status: item.status, detail: item.reason ?? null };
+  }
+  return out;
+}
 
 export const sourceFromWire = (value: DTO['Source']): Source => ({
   id: value.source_id, extracted_text: value.extracted_text, quotation: value.quotation,
@@ -31,9 +44,10 @@ export const candidateFromWire = (value: DTO['Candidate']): Candidate => ({
   id: value.candidate_id, source_id: value.source_id, text: value.text, scope: scopeFromWire(value.scope),
   state: value.status, parent_candidate_id: value.parent_candidate_id, base_version_id: value.base_version_id,
   content_hash: value.content_hash, latest_run_id: value.latest_run_id ?? null, created_at: value.created_at,
+  ttl_seconds: number(value as unknown as Record<string, unknown>, 'ttl_seconds') || TTL_DEFAULT_SECONDS,
 });
 
-function executionFromWire(value: DTO['Execution']): Execution {
+export function executionFromWire(value: DTO['Execution']): Execution {
   const attempt = value.attempt;
   const outcome = value.tool_outcome;
   return { side: value.side, repetition: value.repetition,
@@ -69,6 +83,9 @@ export function runFromWire(value: DTO['Run']): Run {
     usage: { model_calls: number(value.usage, 'model_calls'), input_tokens: number(value.summary, 'input_tokens'),
       output_tokens: number(value.summary, 'output_tokens'), latency_ms: number(value.usage, 'elapsed_ms') || number(value.summary, 'latency_ms') },
     recorded: value.live === false, created_at: value.created_at, completed_at: null,
+    // Old runs carry no retrieval provenance; show that as missing, never invent it.
+    memory_retrieval: ((value as unknown as { memory_retrieval?: WireMemoryRetrieval[] }).memory_retrieval ?? []).map(retrievalFromWire),
+    trace_url: string(value as unknown as Record<string, unknown>, 'trace_url'),
   };
 }
 
@@ -81,7 +98,8 @@ export const activeFromWire = (value: DTO['Version']): ActiveMemory => ({
 export const historyFromWire = (value: DTO['History']): History => ({
   versions: value.versions.map((v) => ({ version_id: v.version_id, parent_version_id: v.parent_version_id,
     candidate_id: v.candidate_id ?? null, run_id: v.run_id ?? null, activated_at: v.created_at })),
-  events: value.events.map((e) => ({ id: e.event_id, decision: e.decision as 'approve' | 'quarantine' | 'revise',
-    actor: e.actor, candidate_id: e.candidate_id, run_id: e.run_id, version_id: e.version_id, reason: e.reason, created_at: e.created_at })),
+  events: value.events.map((e) => ({ id: e.event_id, decision: e.decision as 'approve' | 'quarantine' | 'revise' | 'revoke',
+    actor: e.actor, candidate_id: e.candidate_id, run_id: e.run_id, version_id: e.version_id, reason: e.reason, created_at: e.created_at,
+    memory_id: string(e as unknown as Record<string, unknown>, 'memory_id') })),
   truncated: value.truncated,
 });

@@ -22,6 +22,11 @@ export interface Health {
   model: IntegrationHealth;
   search: IntegrationHealth;
   voice: IntegrationHealth;
+  /** Governed-memory phase components. Absent on a backend that predates them. */
+  embeddings?: IntegrationHealth;
+  memory_search?: IntegrationHealth;
+  tracing?: IntegrationHealth;
+  vision?: IntegrationHealth;
 }
 
 export type Scope =
@@ -55,7 +60,13 @@ export interface Candidate {
   content_hash: string;
   latest_run_id: string | null;
   created_at: string;
+  /** How long the memory lives once activated. Part of the candidate's frozen content hash. */
+  ttl_seconds: number;
 }
+
+export const TTL_DEFAULT_SECONDS = 3600;
+export const TTL_MIN_SECONDS = 60;
+export const TTL_MAX_SECONDS = 86400;
 
 export type SelectionReason = 'sentinel' | 'vector' | 'neighbor' | 'fill';
 
@@ -115,6 +126,60 @@ export interface Run {
   recorded: boolean;
   created_at: string;
   completed_at: string | null;
+  /** Memories frozen for each selected case. Empty on runs that predate retrieval provenance. */
+  memory_retrieval: CaseRetrieval[];
+  trace_url: string | null;
+}
+
+/** One governed memory as the backend evaluates it right now. */
+export interface GovernedEntry {
+  id: string;
+  text: string;
+  scope: Scope;
+  candidate_id: string | null;
+  version_id: string;
+  activated_at: string;
+  expires_at: string;
+  availability: 'active' | 'expired';
+}
+
+export interface GovernedMemory {
+  version_id: string;
+  /** The backend's clock when availability was decided. The authority, not the browser clock. */
+  evaluated_at: string;
+  items: GovernedEntry[];
+  truncated: boolean;
+}
+
+export interface RetrievedMemory extends GovernedEntry {
+  reason: 'exact_scope' | 'semantic';
+  score: number | null;
+}
+
+/** Which memories the agent was given for one case, frozen once and reused for both sides. */
+export interface CaseRetrieval {
+  case_id: string;
+  retrieval_at: string;
+  profile_id: string;
+  base_version_id: string;
+  entries: RetrievedMemory[];
+}
+
+export interface TaskOption {
+  fixture_id: string;
+  description: string;
+}
+
+/** One bounded run of the live agent with ACTIVE memory. Never admission evidence. */
+export interface ActiveExecution {
+  id: string;
+  created_at: string;
+  version_id: string;
+  fixture_id: string;
+  retrieval: CaseRetrieval;
+  execution: Execution;
+  model: string | null;
+  trace_url: string | null;
 }
 
 export interface MemoryEntry {
@@ -141,13 +206,15 @@ export interface VersionRecord {
 
 export interface ReviewEvent {
   id: string;
-  decision: 'approve' | 'quarantine' | 'revise';
+  decision: 'approve' | 'quarantine' | 'revise' | 'revoke';
   actor: string;
   candidate_id: string;
   run_id: string | null;
   version_id: string | null;
   reason: string | null;
   created_at: string;
+  /** Set on revoke events. */
+  memory_id?: string | null;
 }
 
 export interface History {
@@ -183,16 +250,21 @@ export interface MembraneApi {
   health(): Promise<Health>;
   uploadSource(file: File): Promise<Source>;
   getSource(id: string): Promise<Source>;
-  createCandidate(input: { source_id: string; text: string; scope: Scope; base_version_id: string }): Promise<Candidate>;
+  createCandidate(input: { source_id: string; text: string; scope: Scope; base_version_id: string; ttl_seconds: number }): Promise<Candidate>;
   getCandidate(id: string): Promise<Candidate>;
   startRun(candidateId: string): Promise<{ run_id: string }>;
   getRun(id: string): Promise<Run>;
-  revise(candidateId: string, input: { text: string; scope: Scope }): Promise<Candidate>;
+  revise(candidateId: string, input: { text: string; scope: Scope; ttl_seconds: number }): Promise<Candidate>;
   approve(candidateId: string, runId: string): Promise<Candidate>;
   quarantine(candidateId: string, reason: string): Promise<Candidate>;
   activeMemory(): Promise<ActiveMemory>;
   history(): Promise<History>;
   audio(runId: string, caseId: string, side: Side, repetition: Repetition): Promise<AudioClip>;
+  memoryEntries(): Promise<GovernedMemory>;
+  revokeMemory(memoryId: string, input: { base_version_id: string; reason: string }): Promise<{ version_id: string; event_id: string }>;
+  listTasks(): Promise<TaskOption[]>;
+  executeTask(fixtureId: string, baseVersionId: string): Promise<ActiveExecution>;
+  getExecution(executionId: string): Promise<ActiveExecution>;
 }
 
 export const TERMINAL_RUN: ReadonlySet<RunStatus> = new Set<RunStatus>(['completed', 'failed', 'inconclusive']);

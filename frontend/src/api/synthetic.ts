@@ -6,7 +6,10 @@
  */
 import {
   ApiError,
+  type ActiveExecution,
   type ActiveMemory,
+  type CaseRetrieval,
+  type GovernedEntry,
   type Candidate,
   type CaseResult,
   type Classification,
@@ -146,6 +149,31 @@ const state = {
   } as History,
 };
 
+/** Governed fields for each synthetic memory. Seeded policy does not expire during a demo. */
+const FAR = '2099-01-01T00:00:00.000Z';
+const governed = new Map<string, { version_id: string; activated_at: string; expires_at: string }>([
+  ['mem_policy_1', { version_id: 'ver_syn_001', activated_at: now(), expires_at: FAR }],
+  ['mem_policy_2', { version_id: 'ver_syn_001', activated_at: now(), expires_at: FAR }],
+]);
+const executions = new Map<string, ActiveExecution>();
+
+function entries(at = Date.now()): GovernedEntry[] {
+  return state.active.entries.map((m) => {
+    const g = governed.get(m.id) ?? { version_id: state.active.version_id, activated_at: state.active.activated_at, expires_at: FAR };
+    return { id: m.id, text: m.text, scope: m.scope, candidate_id: m.candidate_id, ...g, availability: Date.parse(g.expires_at) > at ? 'active' as const : 'expired' as const };
+  });
+}
+
+/** What the agent would be given for one order: unexpired global memory plus an exact order match. */
+function retrieve(caseId: string, orderId: string): CaseRetrieval {
+  const at = Date.now();
+  const usable = entries(at).filter((m) => m.availability === 'active' && (m.scope.kind !== 'order' || m.scope.order_id === orderId));
+  return {
+    case_id: caseId, retrieval_at: new Date(at).toISOString(), profile_id: 'synthetic', base_version_id: state.active.version_id,
+    entries: usable.map((m) => ({ ...m, reason: m.scope.kind === 'order' ? 'exact_scope' as const : 'semantic' as const, score: m.scope.kind === 'order' ? null : 0.71 })),
+  };
+}
+
 function need<T>(map: Map<string, T>, id: string, what: string): T {
   const value = map.get(id);
   if (!value) throw new ApiError(404, 'not_found', `${what} ${id} not found (synthetic).`);
@@ -187,7 +215,7 @@ export const syntheticApi: MembraneApi = {
     const candidate: Candidate = {
       id: nextId('cand'), source_id: input.source_id, text: input.text, scope: input.scope, state: 'staged',
       parent_candidate_id: null, base_version_id: input.base_version_id, content_hash: `syn-${input.text.length}-${input.scope.kind}`,
-      latest_run_id: null, created_at: now(),
+      latest_run_id: null, created_at: now(), ttl_seconds: input.ttl_seconds,
     };
     state.candidates.set(candidate.id, candidate);
     return wait(candidate);
@@ -205,6 +233,7 @@ export const syntheticApi: MembraneApi = {
       model_config: { provider: 'synthetic', agent_model: 'none', temperature: null },
       usage: { model_calls: 0, input_tokens: 0, output_tokens: 0, latency_ms: 0 },
       recorded: true, created_at: now(), completed_at: null,
+      memory_retrieval: FIXTURES.map((fx) => retrieve(`case_${fx.id}`, fx.order_id)), trace_url: null,
     };
     state.runs.set(run.id, { run, full: buildCases(candidate.scope), scope: candidate.scope });
     candidate.state = 'testing';
@@ -235,12 +264,12 @@ export const syntheticApi: MembraneApi = {
     return wait(run, 120);
   },
 
-  revise: (candidateId: string, input: { text: string; scope: Scope }) => {
+  revise: (candidateId: string, input: { text: string; scope: Scope; ttl_seconds: number }) => {
     const parent = need(state.candidates, candidateId, 'Candidate');
     const child: Candidate = {
       ...parent, id: nextId('cand'), text: input.text, scope: input.scope, state: 'staged',
       parent_candidate_id: parent.id, base_version_id: state.active.version_id,
-      content_hash: `syn-${input.text.length}-${input.scope.kind}`, latest_run_id: null, created_at: now(),
+      content_hash: `syn-${input.text.length}-${input.scope.kind}`, latest_run_id: null, created_at: now(), ttl_seconds: input.ttl_seconds,
     };
     state.candidates.set(child.id, child);
     state.history.events.unshift({ id: nextId('evt'), decision: 'revise', actor: 'demo-reviewer', candidate_id: parent.id, run_id: parent.latest_run_id, version_id: null, reason: `Revised as ${child.id}`, created_at: now() });
@@ -259,9 +288,11 @@ export const syntheticApi: MembraneApi = {
     const version_id = nextId('ver');
     state.history.versions.unshift({ version_id, parent_version_id: state.active.version_id, candidate_id: candidate.id, run_id: runId, activated_at: now() });
     state.history.events.unshift({ id: nextId('evt'), decision: 'approve', actor: 'demo-reviewer', candidate_id: candidate.id, run_id: runId, version_id, reason: null, created_at: now() });
+    const newMemoryId = nextId('mem');
+    governed.set(newMemoryId, { version_id, activated_at: now(), expires_at: new Date(Date.now() + candidate.ttl_seconds * 1000).toISOString() });
     state.active = {
       version_id, revision: (state.active.revision ?? 0) + 1, activated_at: now(),
-      entries: [...state.active.entries, { id: nextId('mem'), text: candidate.text, scope: candidate.scope, candidate_id: candidate.id }],
+      entries: [...state.active.entries, { id: newMemoryId, text: candidate.text, scope: candidate.scope, candidate_id: candidate.id }],
     };
     candidate.state = 'approved';
     return wait(candidate);
@@ -274,6 +305,41 @@ export const syntheticApi: MembraneApi = {
     state.history.events.unshift({ id: nextId('evt'), decision: 'quarantine', actor: 'demo-reviewer', candidate_id: candidate.id, run_id: candidate.latest_run_id, version_id: null, reason, created_at: now() });
     return wait(candidate);
   },
+
+  memoryEntries: () => wait({ version_id: state.active.version_id, evaluated_at: now(), items: entries(), truncated: false }, 80),
+
+  revokeMemory: async (memoryId: string, input: { base_version_id: string; reason: string }) => {
+    if (input.base_version_id !== state.active.version_id) throw new ApiError(409, 'stale_base', 'Active memory changed since this list was loaded.');
+    const target = state.active.entries.find((m) => m.id === memoryId);
+    if (!target) throw new ApiError(409, 'already_removed', 'That memory is no longer part of active memory.');
+    // A new immutable version without the entry; the old version stays in history.
+    const version_id = nextId('ver');
+    const event_id = nextId('evt');
+    state.history.versions.unshift({ version_id, parent_version_id: state.active.version_id, candidate_id: null, run_id: null, activated_at: now() });
+    state.history.events.unshift({ id: event_id, decision: 'revoke', actor: 'demo-reviewer', candidate_id: target.candidate_id ?? '', run_id: null, version_id, reason: input.reason, created_at: now(), memory_id: memoryId });
+    state.active = { version_id, revision: (state.active.revision ?? 0) + 1, activated_at: now(), entries: state.active.entries.filter((m) => m.id !== memoryId) };
+    return wait({ version_id, event_id });
+  },
+
+  listTasks: () => wait(FIXTURES.map((fx) => ({ fixture_id: fx.id, description: fx.title })), 80),
+
+  executeTask: async (fixtureId: string, baseVersionId: string) => {
+    const fx = FIXTURES.find((f) => f.id === fixtureId);
+    if (!fx) throw new ApiError(404, 'not_found', `Task ${fixtureId} not found (synthetic).`);
+    if (baseVersionId !== state.active.version_id) throw new ApiError(409, 'stale_base', 'Active memory changed. Refresh and run again.');
+    const retrieval = retrieve(`case_${fx.id}`, fx.order_id);
+    // Only memory that is active, unexpired and in scope can change what the agent does.
+    const scoped = retrieval.entries.find((m) => m.scope.kind === 'order');
+    const result = scoped ? execution(fx, 'candidate', 1, scoped.scope) : execution(fx, 'baseline', 1, { kind: 'global' });
+    const record: ActiveExecution = {
+      id: nextId('exec'), created_at: now(), version_id: state.active.version_id, fixture_id: fx.id, retrieval,
+      execution: { ...result.exec, side: 'baseline' }, model: 'none (synthetic)', trace_url: null,
+    };
+    executions.set(record.id, record);
+    return wait(record, 500);
+  },
+
+  getExecution: async (executionId: string) => wait(need(executions, executionId, 'Execution'), 80),
 
   activeMemory: () => wait(state.active, 80),
   history: () => wait(state.history, 80),
