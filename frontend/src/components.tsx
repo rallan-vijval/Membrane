@@ -175,6 +175,8 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
     <section className="panel" aria-labelledby="source-h">
       <h2 id="source-h">1. What should the AI remember?</h2>
 
+      <div className="source-grid">
+      <div className="source-intake">
       {video ? (
         <div className="frame-picker">
           <video ref={videoRef} src={video.url} controls muted playsInline aria-label={`Preview of ${video.name}`} />
@@ -209,8 +211,8 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
           {source.image_url && <img src={source.image_url} alt="The source as sent to the backend" />}
           {note && <p className="conversion">{note}</p>}
           <div className="trust">
-            <Pill value={source.provenance.trusted ? 'ready' : 'degraded'} />{' '}
-            {source.provenance.trusted ? 'Trusted source' : 'Untrusted source: it cannot grant authority or exceptions'}
+            <span className={`pill ${source.provenance.trusted ? 'pill-ready' : 'pill-degraded'}`}>{source.provenance.trusted ? 'trusted' : 'untrusted source'}</span>{' '}
+            {source.provenance.trusted ? '' : 'It cannot grant authority or exceptions.'}
           </div>
           {source.quotation && <blockquote>{source.quotation}</blockquote>}
           <details>
@@ -226,6 +228,8 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
         <p className="empty">Add a source to extract a proposed memory. A PDF sends page 1; a video sends the one frame you pick.</p>
       )}
 
+      </div>
+      <div className="source-editor">
       <label className="field">
         <span>Proposed memory</span>
         <textarea aria-label="Proposed memory" value={text} onChange={(e) => setText(e.target.value)} rows={3} disabled={disabled || !source || !editorReady} />
@@ -295,6 +299,8 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
           </dd>
         </dl>
       )}
+      </div>
+      </div>
     </section>
   );
 }
@@ -327,6 +333,15 @@ function sideSummary(c: CaseResult, side: Side): string {
   if (labels.length === 0) return 'pending';
   return new Set(labels).size === 1 ? labels[0] : labels.map((l, i) => `rep ${i + 1}: ${l}`).join(' / ');
 }
+
+type CaseFilter = 'all' | 'problems' | 'changed' | 'unchanged';
+const FILTER_LABEL: Record<CaseFilter, string> = { all: 'All', problems: 'Broke policy', changed: 'Changed safely', unchanged: 'Unchanged' };
+const FILTERS: Record<CaseFilter, (c: CaseResult) => boolean> = {
+  all: () => true,
+  problems: (c) => c.classification === 'new-policy-violation' || c.classification === 'pre-existing-violation' || c.classification === 'inconclusive' || c.classification === null,
+  changed: (c) => c.classification === 'intended-safe-change',
+  unchanged: (c) => c.classification === 'unchanged-safe',
+};
 
 const CLASS_TEXT: Record<Classification, string> = {
   'unchanged-safe': 'Unchanged, safe',
@@ -393,6 +408,17 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
   const running = run ? run.status === 'queued' || run.status === 'running' : false;
   const canRun = candidate !== null && !running && ['staged', 'eligible', 'inconclusive'].includes(candidate.state);
   const reasons = new Map(run?.selection.map((s) => [s.fixture_id, s]) ?? []);
+  const [filter, setFilter] = useState<CaseFilter | null>(null);
+  const sorted = run ? [...run.cases].sort((x, y) => ORDER.indexOf(x.classification ?? 'inconclusive') - ORDER.indexOf(y.classification ?? 'inconclusive')) : [];
+  const counts: Record<CaseFilter, number> = {
+    all: sorted.length,
+    problems: sorted.filter((c) => FILTERS.problems(c)).length,
+    changed: sorted.filter((c) => FILTERS.changed(c)).length,
+    unchanged: sorted.filter((c) => FILTERS.unchanged(c)).length,
+  };
+  // Default view: everything that needs a look. Unchanged cases sit behind one click.
+  const attentionOnly = filter === null && counts.unchanged > 0 && counts.unchanged < counts.all;
+  const visible = attentionOnly ? sorted.filter((c) => !FILTERS.unchanged(c)) : sorted.filter(FILTERS[filter ?? 'all']);
 
   return (
     <section className="panel wide" aria-labelledby="run-h">
@@ -433,12 +459,20 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
 
           <h3 className="results-heading">3. What changed?</h3>
           <p className="hint">Open a request to see the attempted actions and the rules they passed or failed.</p>
+          <div className="case-filters" role="group" aria-label="Filter cases">
+            {(['all', 'problems', 'changed', 'unchanged'] as CaseFilter[]).map((f) => (
+              <button type="button" key={f} className={`filter filter-${f}`} aria-pressed={!attentionOnly && (filter ?? 'all') === f} disabled={counts[f] === 0 && f !== 'all'}
+                      onClick={() => setFilter(f)}>
+                {FILTER_LABEL[f]} <span className="filter-count">{counts[f]}</span>
+              </button>
+            ))}
+          </div>
           <table>
             <thead>
               <tr><th scope="col">Case</th><th scope="col">Without it</th><th className="pore-head" aria-hidden="true" /><th scope="col">With the proposed memory</th><th scope="col">Result</th></tr>
             </thead>
             <tbody>
-              {[...run.cases].sort((x, y) => ORDER.indexOf(x.classification ?? 'inconclusive') - ORDER.indexOf(y.classification ?? 'inconclusive')).map((c) => {
+              {visible.map((c) => {
                 const expanded = open === c.case_id;
                 const cls = c.classification ?? 'inconclusive';
                 return (
@@ -451,6 +485,11 @@ export function RunPanel({ candidate, run, voice, disabled, onRun }: RunPanelPro
               })}
             </tbody>
           </table>
+          {attentionOnly && (
+            <button type="button" className="show-rest" onClick={() => setFilter('all')}>
+              Show {sorted.length - visible.length} more {sorted.length - visible.length === 1 ? 'case' : 'cases'} where nothing changed
+            </button>
+          )}
           {run.cases.length === 0 && <p className="empty">Waiting for the first results…</p>}
         </>
       )}
@@ -462,7 +501,10 @@ function CaseRows({ c, cls, expanded, runId, pickedBy, voiceReady, onToggle, ret
   c: CaseResult; cls: Classification; expanded: boolean; runId: string; pickedBy: string | null; voiceReady: boolean; onToggle: () => void;
   retrieval: CaseRetrieval | undefined; runHasProvenance: boolean; candidateText: string | null;
 }) {
-  const diff = c.classification ? caseDiff(c) : [];
+  const allDiff = c.classification ? caseDiff(c) : [];
+  // Lead with the argument that matters; the action change is already in the row text.
+  const args = allDiff.filter((d) => d.field !== 'action');
+  const diff = args.length > 0 ? args : allDiff;
   return (
     <>
       <tr className={`case case-${cls}`}>
@@ -539,7 +581,9 @@ export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantin
                 {run.admission === 'quarantine' && '✕ Rejected - inspect the failures'}
                 {run.admission === 'inconclusive' && '? Inconclusive: investigate or retest'}
               </strong>
-              <ul>{run.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+              {run.reasons.length > 0 && (
+                <details className="verdict-reasons"><summary>{run.reasons.length === 1 ? 'Reason' : `${run.reasons.length} reasons`}</summary><ul>{run.reasons.map((r) => <li key={r}>{r}</li>)}</ul></details>
+              )}
               {run.cases.length > 0 && (
                 <p className="tally">
                   Of {run.cases.length} cases: {ORDER.map((k) => [run.cases.filter((c) => (c.classification ?? 'inconclusive') === k).length, CLASS_TEXT[k].toLowerCase()] as const)
@@ -556,14 +600,14 @@ export function DecisionPanel({ candidate, run, disabled, onApprove, onQuarantin
             {!eligible && candidate.state !== 'approved' && (
               <p className="meta">Approval is available only after this exact version passes the required checks.</p>
             )}
-            <label className="field">
+            {!decided && <label className="field">
               <span>Reason for rejecting</span>
               <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. waives returns for every VIP" disabled={disabled || decided} />
-            </label>
-            <button type="button" className="danger" disabled={disabled || decided || reason.trim().length === 0}
+            </label>}
+            {!decided && <button type="button" className="danger" disabled={disabled || reason.trim().length === 0}
                     onClick={() => onQuarantine(reason.trim())}>
               Reject memory
-            </button>
+            </button>}
             <p className="meta">To narrow the memory, edit the proposal above and save it for a new test. Earlier results cannot approve an edited memory.</p>
           </div>
         </>

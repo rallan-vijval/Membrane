@@ -14,6 +14,7 @@ import {
 import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
 import { ActiveTaskPanel, MemoryPanel } from './governed';
 import { describeError } from './util';
+import { QuarantineBox } from './quarantine';
 import { WorkflowGuide } from './workflow';
 
 const POLL_MS = 2000;
@@ -207,6 +208,17 @@ export function App() {
       }
     });
 
+  /** Open an earlier candidate with its latest evidence, e.g. from the quarantine box. */
+  const onOpenCandidate = (candidateId: string) =>
+    act('Opening…', async () => {
+      const c = await api.getCandidate(candidateId);
+      const r = c.latest_run_id ? await api.getRun(c.latest_run_id) : null;
+      setCandidate(c);
+      setRun(r);
+      api.getSource(c.source_id).then((s) => alive.current && setSource(s)).catch(fail);
+      window.scrollTo({ top: 0 });
+    });
+
   return (
     <div className="app">
       {api.mode === 'synthetic' && (
@@ -238,6 +250,7 @@ export function App() {
         />
         <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
         <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
+        <QuarantineBox refreshKey={`${candidate?.id ?? ''}:${candidate?.state ?? ''}:${run?.status ?? ''}`} currentId={candidate?.id ?? null} onOpen={onOpenCandidate} />
       </main>
       <section hidden={view !== 'live'} aria-label="Approved memory workspace"><div className="live-divider"><span>AFTER THE CHECKPOINT</span><h2>Memory in use</h2><p>Inspect what is active, or try a single request. These live trials do not count as admission evidence.</p></div>
       <div className="governed">

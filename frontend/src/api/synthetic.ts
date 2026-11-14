@@ -221,6 +221,7 @@ export const syntheticApi: MembraneApi = {
     return wait(candidate);
   },
 
+  listCandidates: () => wait([...state.candidates.values()].reverse(), 80),
   getCandidate: (id: string) => wait(need(state.candidates, id, 'Candidate'), 80),
 
   startRun: (candidateId: string) => {

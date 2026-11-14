@@ -252,6 +252,8 @@ export interface MembraneApi {
   getSource(id: string): Promise<Source>;
   createCandidate(input: { source_id: string; text: string; scope: Scope; base_version_id: string; ttl_seconds: number }): Promise<Candidate>;
   getCandidate(id: string): Promise<Candidate>;
+  /** Latest candidates, newest first as the backend returns them. */
+  listCandidates(): Promise<Candidate[]>;
   startRun(candidateId: string): Promise<{ run_id: string }>;
   getRun(id: string): Promise<Run>;
   revise(candidateId: string, input: { text: string; scope: Scope; ttl_seconds: number }): Promise<Candidate>;
