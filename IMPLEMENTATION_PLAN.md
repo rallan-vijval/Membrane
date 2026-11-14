@@ -4,7 +4,7 @@
 
 Build the hackathon MVP described here in `C:\MongoDB`. Membrane previews how a proposed agent memory changes behavior before that memory becomes active. Implement the full vertical slice, then the review UI, then the evaluation. Use the existing MongoDB Atlas sandbox as the actual application database and test-retrieval engine.
 
-This document is an implementation specification, not a claim that any integration has been completed. The workspace was empty when this plan was prepared. Atlas credentials, cluster capabilities, and model credentials have not been inspected. The source is the two-page `Membrane_Proposal.pdf`, including the screenshot → staged memory → paired tests → approve/quarantine/revise workflow.
+This document is an implementation specification, not a claim that the application has been completed. On November 14, 2026, the MongoDB Atlas plugin successfully connected to the existing Sandbox Project's `Cluster0` and listed the `membrane` database. This verifies plugin connectivity only: application credentials, collection contents, write access, transactions, and Vector Search readiness still require preflight. Model credentials have not been verified. The original source is the two-page `Membrane_Proposal.pdf`, including the screenshot → staged memory → paired tests → approve/quarantine/revise workflow.
 
 ### Product promise
 
@@ -77,9 +77,9 @@ Create `.env.example` containing names/placeholders only:
 
 ```dotenv
 MONGODB_URI=
-MONGODB_DB=membrane_hackathon
+MONGODB_DB=membrane
 MODEL_PROVIDER=openai
-MODEL_API_KEY=
+OPENAI_API_KEY=
 AGENT_MODEL=
 VISION_MODEL=
 EMBEDDING_MODEL=
@@ -89,6 +89,26 @@ MAX_AGENT_TURNS=3
 MODEL_TIMEOUT_SECONDS=45
 MAX_RUN_MODEL_CALLS=80
 ```
+
+Use a project-scoped OpenAI API key on the backend for agent execution, screenshot extraction, and embeddings. No separate agent-hosting service or agent-specific key is required. Select and verify accessible text/image/tool-capable models during M0; keep agent and vision IDs configurable. `text-embedding-3-small` is the initial embedding option, subject to an actual API check and dimension validation. Plugin authorization is not an application credential: the running FastAPI service needs its own `MONGODB_URI`. Do not extract credentials from plugin connection handles. Inspect existing `membrane` collections before seeding; use workspace-scoped deterministic IDs and preserve unrelated data.
+
+The 80-call cap is a spending guard, not enough for the worst case: 12 cases × 2 sides × 2 repetitions × 3 turns = 144 model calls before retries, extraction, or embeddings. Preflight must show initial and worst-case estimates, account for every attempted provider request including retries, and distinguish per-run execution budget from setup/benchmark usage. Either configure sufficient budget or accept a visibly inconclusive capped run. Never silently reduce required admission coverage to fit the cap.
+
+### Optional ElevenLabs integration
+
+Keep the screenshot-based vertical slice first. After M3, add a user-triggered **Listen to A/B responses** feature using ElevenLabs text-to-speech. Render the exact persisted answers for a selected case/side/repetition with the same configured voice/model/settings on both sides. Keep the text, attempted tool arguments, enforcement, and run identifiers visible. Audio is a presentation artifact and cannot affect classification, eligibility, approval, or active memory. Do not generate alternative dialogue or claim audio was an input to the original text evaluation.
+
+Implementation:
+
+- Add optional server-only `ELEVENLABS_API_KEY`, `ELEVENLABS_TTS_MODEL`, `ELEVENLABS_VOICE_ID`, `VOICE_ENABLED=false`, and `MAX_TTS_CHARACTERS_PER_REQUEST` settings. Verify account API credit eligibility, permitted models/voices, and actual quota before generation; promotional credit terms have not been checked.
+- Add `POST /api/runs/{id}/cases/{case_id}/audio` with an explicit side/repetition selector. Only synthesize stored completed answers, enforce a text length bound, and keep requests idempotent. Cache by answer hash plus provider/model/voice/settings. Store local audio files and workspace-scoped Atlas metadata, never base64 audio in operational documents.
+- Make generation opt-in per selected answer, rather than speaking all 48 executions. Record provider request IDs, submitted character counts, latency, and reported usage when available. Enforce local limits and an account key quota; avoid hard-coded credit-to-dollar conversions.
+- Show independent voice readiness and errors. Missing keys, credit exhaustion, or audio failure leave the core evaluation usable. Provide ordinary audio controls and the exact transcript.
+- Test stored-text fidelity, same synthesis settings across A/B, cache reuse, bounded usage, and that speech requests cannot change review state.
+
+If budget remains, accept an uploaded synthetic support voice note through ElevenLabs speech-to-text as a second source type. Preserve the audio hash, actual transcript, model/configuration, and provenance; label the transcript untrusted. Let the reviewer correct transcription into a separately versioned candidate while retaining the original transcript. A voice note cannot create a trusted exception. Evaluate the frozen resulting text through the existing paired runner; this does not test acoustic behavior. Live ElevenAgents conversations, telephony, voice cloning, spoken approval, and a second autonomous reviewer agent remain outside the MVP.
+
+Official integration references: https://elevenlabs.io/docs/api-reference/authentication ; https://elevenlabs.io/docs/overview/capabilities/text-to-speech ; https://elevenlabs.io/docs/overview/capabilities/speech-to-text ; https://developers.openai.com/api/docs/quickstart ; https://developers.openai.com/api/docs/guides/embeddings . Verify current SDK signatures during implementation.
 
 Read existing configuration without printing secrets. Preflight must check connectivity, actual server version, required collection access, provider/model availability, embedding dimensions, and Vector Search readiness. Report separate database/model/search status. If credentials are missing, finish independent implementation and identify the exact missing variable; never claim a live integration passed.
 
