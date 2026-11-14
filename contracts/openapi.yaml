@@ -1,0 +1,1598 @@
+openapi: 3.1.0
+info:
+  title: Membrane review API
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health
+      operationId: health_api_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/sources:
+    post:
+      summary: Upload
+      operationId: upload_api_sources_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_upload_api_sources_post'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/sources/{source_id}/image:
+    get:
+      summary: Image
+      operationId: image_api_sources__source_id__image_get
+      parameters:
+      - name: source_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Source Id
+      responses:
+        '200':
+          description: Successful Response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/candidates:
+    get:
+      summary: Candidates
+      operationId: candidates_api_candidates_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateList'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Stage
+      operationId: stage_api_candidates_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/candidates/{candidate_id}:
+    get:
+      summary: Candidate
+      operationId: candidate_api_candidates__candidate_id__get
+      parameters:
+      - name: candidate_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Candidate Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/sources/{source_id}:
+    get:
+      summary: Source
+      operationId: source_api_sources__source_id__get
+      parameters:
+      - name: source_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Source Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/candidates/{candidate_id}/revise:
+    post:
+      summary: Revise
+      operationId: revise_api_candidates__candidate_id__revise_post
+      parameters:
+      - name: candidate_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Candidate Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviseIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/candidates/{candidate_id}/runs:
+    post:
+      summary: Run
+      operationId: run_api_candidates__candidate_id__runs_post
+      parameters:
+      - name: candidate_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Candidate Id
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunAccepted'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/runs/{run_id}:
+    get:
+      summary: Run Detail
+      operationId: run_detail_api_runs__run_id__get
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/candidates/{candidate_id}/approve:
+    post:
+      summary: Approve
+      operationId: approve_api_candidates__candidate_id__approve_post
+      parameters:
+      - name: candidate_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Candidate Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/candidates/{candidate_id}/quarantine:
+    post:
+      summary: Quarantine
+      operationId: quarantine_api_candidates__candidate_id__quarantine_post
+      parameters:
+      - name: candidate_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Candidate Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuarantineIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/memory/active:
+    get:
+      summary: Active
+      operationId: active_api_memory_active_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/history:
+    get:
+      summary: History
+      operationId: history_api_history_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/History'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/runs/{run_id}/cases/{case_id}/audio:
+    post:
+      summary: Audio
+      operationId: audio_api_runs__run_id__cases__case_id__audio_post
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audio'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/audio/{audio_id}:
+    get:
+      summary: Audio File
+      operationId: audio_file_api_audio__audio_id__get
+      parameters:
+      - name: audio_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Audio Id
+      responses:
+        '200':
+          description: Successful Response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+components:
+  schemas:
+    ApproveIn:
+      properties:
+        run_id:
+          type: string
+          title: Run Id
+        reason:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - reason
+      title: ApproveIn
+    Attempt:
+      properties:
+        action:
+          type: string
+          enum:
+          - refund_order
+          - request_return
+          - request_verification
+          - answer
+          title: Action
+        answer:
+          type: string
+          title: Answer
+        arguments:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Arguments
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - answer
+      title: Attempt
+    Audio:
+      properties:
+        audio_id:
+          type: string
+          title: Audio Id
+        audio_url:
+          type: string
+          title: Audio Url
+        transcript:
+          type: string
+          title: Transcript
+        cached:
+          type: boolean
+          title: Cached
+      additionalProperties: false
+      type: object
+      required:
+      - audio_id
+      - audio_url
+      - transcript
+      - cached
+      title: Audio
+    AudioIn:
+      properties:
+        side:
+          type: string
+          enum:
+          - baseline
+          - candidate
+          title: Side
+        repetition:
+          type: integer
+          enum:
+          - 1
+          - 2
+          title: Repetition
+      additionalProperties: false
+      type: object
+      required:
+      - side
+      - repetition
+      title: AudioIn
+    Body_upload_api_sources_post:
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          title: File
+      type: object
+      required:
+      - file
+      title: Body_upload_api_sources_post
+    Candidate:
+      properties:
+        candidate_id:
+          type: string
+          title: Candidate Id
+        created_at:
+          type: string
+          title: Created At
+        source_id:
+          type: string
+          title: Source Id
+        text:
+          type: string
+          title: Text
+        scope:
+          $ref: '#/components/schemas/Scope'
+        parent_candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Candidate Id
+        base_version_id:
+          type: string
+          title: Base Version Id
+        content_hash:
+          type: string
+          title: Content Hash
+        status:
+          type: string
+          enum:
+          - staged
+          - testing
+          - eligible
+          - quarantined
+          - inconclusive
+          - approved
+          title: Status
+        latest_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Run Id
+      additionalProperties: false
+      type: object
+      required:
+      - candidate_id
+      - created_at
+      - source_id
+      - text
+      - scope
+      - parent_candidate_id
+      - base_version_id
+      - content_hash
+      - status
+      title: Candidate
+    CandidateIn:
+      properties:
+        source_id:
+          type: string
+          title: Source Id
+        text:
+          type: string
+          maxLength: 8000
+          minLength: 1
+          title: Text
+        scope:
+          $ref: '#/components/schemas/Scope'
+        base_version_id:
+          type: string
+          title: Base Version Id
+      additionalProperties: false
+      type: object
+      required:
+      - source_id
+      - text
+      - scope
+      - base_version_id
+      title: CandidateIn
+    CandidateList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Candidate'
+          type: array
+          title: Items
+        truncated:
+          type: boolean
+          title: Truncated
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - truncated
+      title: CandidateList
+    CaseEvidence:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        classification:
+          type: string
+          enum:
+          - unchanged-safe
+          - intended-safe-change
+          - new-policy-violation
+          - pre-existing-violation
+          - inconclusive
+          title: Classification
+        executions:
+          items:
+            $ref: '#/components/schemas/Execution'
+          type: array
+          title: Executions
+      additionalProperties: false
+      type: object
+      required:
+      - case_id
+      - classification
+      - executions
+      title: CaseEvidence
+    Check:
+      properties:
+        code:
+          type: string
+          title: Code
+        passed:
+          type: boolean
+          title: Passed
+        reason:
+          type: string
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - passed
+      - reason
+      title: Check
+    ComponentHealth:
+      properties:
+        status:
+          type: string
+          enum:
+          - ready
+          - unavailable
+          - degraded
+          - disabled
+          title: Status
+        reason:
+          type: string
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      - reason
+      title: ComponentHealth
+    ErrorDetail:
+      properties:
+        code:
+          type: string
+          title: Code
+        message:
+          type: string
+          title: Message
+        details:
+          additionalProperties: true
+          type: object
+          title: Details
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - message
+      title: ErrorDetail
+    ErrorResponse:
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+      additionalProperties: false
+      type: object
+      required:
+      - error
+      title: ErrorResponse
+    Execution:
+      properties:
+        side:
+          type: string
+          enum:
+          - baseline
+          - candidate
+          title: Side
+        repetition:
+          type: integer
+          enum:
+          - 1
+          - 2
+          title: Repetition
+        raw_responses:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Raw Responses
+        attempt:
+          anyOf:
+          - $ref: '#/components/schemas/Attempt'
+          - type: 'null'
+        tool_outcome:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Tool Outcome
+        checks:
+          items:
+            $ref: '#/components/schemas/Check'
+          type: array
+          title: Checks
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+        input_hash:
+          type: string
+          title: Input Hash
+        calls:
+          type: integer
+          title: Calls
+        input_tokens:
+          type: integer
+          title: Input Tokens
+        output_tokens:
+          type: integer
+          title: Output Tokens
+        latency_ms:
+          type: integer
+          title: Latency Ms
+      additionalProperties: false
+      type: object
+      required:
+      - side
+      - repetition
+      - raw_responses
+      - attempt
+      - tool_outcome
+      - checks
+      - error
+      - input_hash
+      - calls
+      - input_tokens
+      - output_tokens
+      - latency_ms
+      title: Execution
+    Health:
+      properties:
+        database:
+          $ref: '#/components/schemas/ComponentHealth'
+        model:
+          $ref: '#/components/schemas/ComponentHealth'
+        search:
+          $ref: '#/components/schemas/ComponentHealth'
+        voice:
+          $ref: '#/components/schemas/ComponentHealth'
+        demo_identity:
+          type: string
+          title: Demo Identity
+          default: Local demo reviewer
+        workspace_id:
+          type: string
+          title: Workspace Id
+      additionalProperties: false
+      type: object
+      required:
+      - database
+      - model
+      - search
+      - voice
+      - workspace_id
+      title: Health
+    History:
+      properties:
+        versions:
+          items:
+            $ref: '#/components/schemas/Version'
+          type: array
+          title: Versions
+        events:
+          items:
+            $ref: '#/components/schemas/ReviewEvent'
+          type: array
+          title: Events
+        truncated:
+          type: boolean
+          title: Truncated
+      additionalProperties: false
+      type: object
+      required:
+      - versions
+      - events
+      - truncated
+      title: History
+    QuarantineIn:
+      properties:
+        reason:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - reason
+      title: QuarantineIn
+    ReviewEvent:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        created_at:
+          type: string
+          title: Created At
+        actor:
+          type: string
+          title: Actor
+        decision:
+          type: string
+          title: Decision
+        candidate_id:
+          type: string
+          title: Candidate Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        version_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Version Id
+        reason:
+          type: string
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - event_id
+      - created_at
+      - actor
+      - decision
+      - candidate_id
+      - run_id
+      - version_id
+      - reason
+      title: ReviewEvent
+    ReviseIn:
+      properties:
+        text:
+          type: string
+          maxLength: 8000
+          minLength: 1
+          title: Text
+        scope:
+          $ref: '#/components/schemas/Scope'
+      additionalProperties: false
+      type: object
+      required:
+      - text
+      - scope
+      title: ReviseIn
+    Run:
+      properties:
+        run_id:
+          type: string
+          title: Run Id
+        candidate_id:
+          type: string
+          title: Candidate Id
+        created_at:
+          type: string
+          title: Created At
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - failed
+          - inconclusive
+          title: Status
+        admission:
+          anyOf:
+          - type: string
+            enum:
+            - eligible
+            - quarantine
+            - inconclusive
+          - type: 'null'
+          title: Admission
+        reasons:
+          items:
+            type: string
+          type: array
+          title: Reasons
+        progress:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Progress
+        selection:
+          items:
+            $ref: '#/components/schemas/SelectedCase'
+          type: array
+          title: Selection
+        selection_metadata:
+          additionalProperties: true
+          type: object
+          title: Selection Metadata
+        cases:
+          items:
+            $ref: '#/components/schemas/CaseEvidence'
+          type: array
+          title: Cases
+        summary:
+          additionalProperties: true
+          type: object
+          title: Summary
+        config:
+          additionalProperties: true
+          type: object
+          title: Config
+        usage:
+          additionalProperties: true
+          type: object
+          title: Usage
+        live:
+          type: boolean
+          title: Live
+          default: true
+        base_version_id:
+          type: string
+          title: Base Version Id
+        candidate_hash:
+          type: string
+          title: Candidate Hash
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - candidate_id
+      - created_at
+      - status
+      - admission
+      - reasons
+      - progress
+      - selection
+      - selection_metadata
+      - cases
+      - summary
+      - config
+      - usage
+      - base_version_id
+      - candidate_hash
+      title: Run
+    RunAccepted:
+      properties:
+        run_id:
+          type: string
+          title: Run Id
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      title: RunAccepted
+    Scope:
+      properties:
+        kind:
+          type: string
+          enum:
+          - global
+          - order
+          - preference
+          title: Kind
+          default: global
+        order_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Order Id
+        customer_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Customer Id
+        exception_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exception Id
+      additionalProperties: false
+      type: object
+      title: Scope
+    SelectedCase:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        description:
+          type: string
+          title: Description
+        reasons:
+          items:
+            type: string
+          type: array
+          title: Reasons
+        semantic_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Semantic Score
+        task:
+          additionalProperties: true
+          type: object
+          title: Task
+      additionalProperties: false
+      type: object
+      required:
+      - case_id
+      - description
+      - reasons
+      - semantic_score
+      - task
+      title: SelectedCase
+    Source:
+      properties:
+        source_id:
+          type: string
+          title: Source Id
+        created_at:
+          type: string
+          title: Created At
+        sha256:
+          type: string
+          title: Sha256
+        mime_type:
+          type: string
+          title: Mime Type
+        image_url:
+          type: string
+          title: Image Url
+        extracted_text:
+          type: string
+          title: Extracted Text
+        quotation:
+          type: string
+          title: Quotation
+        proposed_text:
+          type: string
+          title: Proposed Text
+        proposed_scope:
+          $ref: '#/components/schemas/Scope'
+        trust:
+          type: string
+          const: untrusted
+          title: Trust
+          default: untrusted
+        provenance:
+          additionalProperties: true
+          type: object
+          title: Provenance
+      additionalProperties: false
+      type: object
+      required:
+      - source_id
+      - created_at
+      - sha256
+      - mime_type
+      - image_url
+      - extracted_text
+      - quotation
+      - proposed_text
+      - proposed_scope
+      - provenance
+      title: Source
+    Version:
+      properties:
+        version_id:
+          type: string
+          title: Version Id
+        created_at:
+          type: string
+          title: Created At
+        parent_version_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Version Id
+        memories:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Memories
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        policy_hash:
+          type: string
+          title: Policy Hash
+      additionalProperties: false
+      type: object
+      required:
+      - version_id
+      - created_at
+      - parent_version_id
+      - memories
+      - policy_hash
+      title: Version
