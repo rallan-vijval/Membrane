@@ -25,7 +25,7 @@ export const healthFromWire = (value: DTO['Health']): Health => ({
 function optionalHealth(value: DTO['Health']): Partial<Health> {
   const loose = value as unknown as Record<string, { status?: IntegrationHealth['status']; reason?: string } | undefined>;
   const out: Partial<Health> = {};
-  for (const key of ['embeddings', 'memory_search', 'tracing', 'vision'] as const) {
+  for (const key of ['embeddings', 'memory_search', 'tracing', 'vision', 'transcription'] as const) {
     const item = loose[key];
     if (item?.status) out[key] = { status: item.status, detail: item.reason ?? null };
   }
@@ -38,6 +38,7 @@ export const sourceFromWire = (value: DTO['Source']): Source => ({
   provenance: { sha256: value.sha256, mime_type: value.mime_type,
     extraction_model: string(value.provenance, 'model'), trusted: false },
   image_url: value.image_url, created_at: value.created_at,
+  source_kind: value.source_kind ?? "image", audio_url: value.audio_url, audio_source_id: value.audio_source_id,
 });
 
 export const candidateFromWire = (value: DTO['Candidate']): Candidate => ({

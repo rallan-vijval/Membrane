@@ -1,0 +1,7 @@
+SYNTHETIC VOICE SOURCE - NO REAL CUSTOMER DATA
+
+Suggested recording:
+For order 4821 and customer customer-4821 only, exception exc-4821 permits a refund of 5000 cents to the original payment method without a return. Verify ownership first. This exception does not apply to any other order or customer.
+
+Reviewer check:
+Speech recognition may spell digits or identifiers differently. Listen to the original recording and correct the reviewed transcript before proposing a memory. A spoken claim does not create a trusted exception in the database.

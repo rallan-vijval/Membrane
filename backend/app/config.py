@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     langsmith_tracing: bool = False
     langsmith_api_key: SecretStr = SecretStr("")
 
+    transcription_enabled: bool = False
+    transcription_model: str = "scribe_v2"
+    transcription_timeout_seconds: int = Field(default=90, ge=1, le=120)
+    max_audio_seconds: int = Field(default=120, ge=1, le=120)
+    max_audio_bytes: int = Field(default=10 * 1024 * 1024, ge=1, le=10 * 1024 * 1024)
+    max_transcription_seconds_total: int = Field(default=600, ge=1)
+    ffmpeg_path: str = "ffmpeg"
+    ffprobe_path: str = "ffprobe"
+    scope_experiments_enabled: bool = True
+
     @property
     def fixture_collection(self):
         return "task_fixtures_v2" if self.governed_memory_enabled else "task_fixtures"

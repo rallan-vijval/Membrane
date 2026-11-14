@@ -15,6 +15,7 @@ import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './componen
 import { ActiveTaskPanel, MemoryPanel } from './governed';
 import { describeError } from './util';
 import { WorkflowGuide } from './workflow';
+import { ScopeExperimentPanel } from './features/memory-lab/ScopeExperimentPanel';
 
 const POLL_MS = 2000;
 
@@ -233,10 +234,12 @@ export function App() {
           candidate={candidate}
           disabled={busy !== null}
           onUpload={onUpload}
+          onAudioSource={s => { setSource(s); setCandidate(null); setRun(null); }}
           onStage={onStage}
           onRevise={onRevise}
         />
         <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
+        <ScopeExperimentPanel candidate={candidate} baseVersionId={active?.version_id ?? null} disabled={busy !== null} />
         <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
       </main>
       <section hidden={view !== 'live'} aria-label="Approved memory workspace"><div className="live-divider"><span>AFTER THE CHECKPOINT</span><h2>Memory in use</h2><p>Inspect what is active, or try a single request. These live trials do not count as admission evidence.</p></div>

@@ -66,6 +66,7 @@ class Health(DTO):
     memory_search: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="disabled", reason="Governed memory is not enabled"))
     tracing: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="disabled", reason="Optional tracing disabled"))
     vision: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="unavailable", reason="Vision access unverified"))
+    transcription: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="disabled", reason="Optional transcription disabled"))
     demo_identity: str = "Local demo reviewer"
     workspace_id: str
 
@@ -75,7 +76,10 @@ class Source(DTO):
     created_at: str
     sha256: str
     mime_type: str
-    image_url: str
+    image_url: str | None
+    source_kind: Literal["image", "audio"] = "image"
+    audio_source_id: str | None = None
+    audio_url: str | None = None
     extracted_text: str
     quotation: str
     proposed_text: str
@@ -289,3 +293,65 @@ class ErrorDetail(DTO):
 
 class ErrorResponse(DTO):
     error: ErrorDetail
+
+
+class AudioWord(DTO):
+    text: str
+    start: float = Field(ge=0)
+    end: float = Field(ge=0)
+
+class AudioSource(DTO):
+    audio_source_id: str
+    created_at: str
+    status: Literal["processing", "transcribed", "failed"]
+    sha256: str
+    duration_seconds: float
+    audio_url: str
+    transcript: str = ""
+    words: list[AudioWord] = Field(default_factory=list)
+    model: str
+    language: str | None = None
+    error: str | None = None
+    trust: Literal["untrusted"] = "untrusted"
+
+class ReviewAudioIn(DTO):
+    reviewed_text: str = Field(min_length=1, max_length=16000)
+
+class ScopeExperimentIn(DTO):
+    base_version_id: str
+
+class ScopeScenario(DTO):
+    scenario_id: str
+    title: str
+    changed_fields: dict[str, Any]
+    task: dict[str, Any]
+    policy_snapshot: dict[str, Any]
+    expected_action: str
+    rule: str
+    fixture_hash: str
+    retrieval: MemoryRetrieval
+
+class ExperimentCase(CaseEvidence):
+    repetition_consistent: bool
+
+
+class ScopeExperiment(DTO):
+    experiment_id: str
+    candidate_id: str
+    created_at: str
+    status: Literal["queued", "running", "completed", "inconclusive", "failed"]
+    admission_evidence: Literal[False] = False
+    candidate_hash: str
+    base_version_id: str
+    profile_id: str
+    config: dict[str, Any]
+    evaluated_at: str
+    scenarios: list[ScopeScenario]
+    progress: dict[str, int]
+    cases: list[ExperimentCase] = Field(default_factory=list)
+    usage: dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None
+    stress_test: str = "Proposal added to every experimental request, including requests outside its scope. Not normal production retrieval."
+
+class ExperimentAccepted(DTO):
+    experiment_id: str

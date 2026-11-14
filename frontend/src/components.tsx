@@ -21,6 +21,7 @@ import {
 import { RetrievalEvidence } from './governed';
 import { captureFrame, prepare } from './intake';
 import { ExperimentSummary } from './workflow';
+import { VoiceSourceIntake } from './features/memory-lab/VoiceSourceIntake';
 import { attemptDiff, describeError } from './util';
 
 // ----------------------------------------------------------------------------- small pieces
@@ -76,7 +77,8 @@ export function Header({ health, active }: { health: Health | null; active: Acti
           <HealthItem name="Atlas" item={health?.database} />
           <HealthItem name="Model" item={health?.model} />
           <HealthItem name="Search" item={health?.search} />
-          <HealthItem name="Voice" item={health?.voice} />
+          <HealthItem name="Answer audio" item={health?.voice} />
+          {health?.transcription && <HealthItem name="Transcription" item={health.transcription} />}
           {health?.embeddings && <HealthItem name="Embeddings" item={health.embeddings} />}
           {health?.memory_search && <HealthItem name="Memory search" item={health.memory_search} />}
           {health?.vision && <HealthItem name="Vision" item={health.vision} />}
@@ -94,11 +96,12 @@ interface SourcePanelProps {
   candidate: Candidate | null;
   disabled: boolean;
   onUpload: (file: File) => void;
+  onAudioSource: (source: Source) => void;
   onStage: (text: string, scope: Scope, ttlSeconds: number) => void;
   onRevise: (text: string, scope: Scope, ttlSeconds: number) => void;
 }
 
-export function SourcePanel({ source, candidate, disabled, onUpload, onStage, onRevise }: SourcePanelProps) {
+export function SourcePanel({ source, candidate, disabled, onUpload, onAudioSource, onStage, onRevise }: SourcePanelProps) {
   const [text, setText] = useState('');
   const [kind, setKind] = useState<Scope['kind']>('global');
   const [orderId, setOrderId] = useState('');
@@ -175,6 +178,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
     <section className="panel" aria-labelledby="source-h">
       <h2 id="source-h">1. What should the AI remember?</h2>
 
+      <VoiceSourceIntake onSourceReady={onAudioSource} disabled={disabled} />
       {video ? (
         <div className="frame-picker">
           <video ref={videoRef} src={video.url} controls muted playsInline aria-label={`Preview of ${video.name}`} />
@@ -206,6 +210,7 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
 
       {source ? (
         <div className="source">
+          {source.audio_url && <audio controls src={source.audio_url} aria-label="Reviewed voice source" />}
           {source.image_url && <img src={source.image_url} alt="The source as sent to the backend" />}
           {note && <p className="conversion">{note}</p>}
           <div className="trust">

@@ -158,6 +158,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/audio-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Audio */
+        post: operations["upload_audio_api_audio_sources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audio-sources/{audio_source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Audio Source */
+        get: operations["get_audio_source_api_audio_sources__audio_source_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audio-sources/{audio_source_id}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Source Audio */
+        get: operations["source_audio_api_audio_sources__audio_source_id__audio_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audio-sources/{audio_source_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Audio */
+        post: operations["review_audio_api_audio_sources__audio_source_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/candidates/{candidate_id}/experiments/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Scope */
+        post: operations["start_scope_api_candidates__candidate_id__experiments_scope_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/experiments/{experiment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Experiment */
+        get: operations["get_experiment_api_experiments__experiment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/candidates/{candidate_id}/approve": {
         parameters: {
             query?: never;
@@ -417,8 +519,59 @@ export interface components {
              */
             repetition: 1 | 2;
         };
+        /** AudioSource */
+        AudioSource: {
+            /** Audio Source Id */
+            audio_source_id: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "processing" | "transcribed" | "failed";
+            /** Sha256 */
+            sha256: string;
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Audio Url */
+            audio_url: string;
+            /**
+             * Transcript
+             * @default
+             */
+            transcript: string;
+            /** Words */
+            words?: components["schemas"]["AudioWord"][];
+            /** Model */
+            model: string;
+            /** Language */
+            language?: string | null;
+            /** Error */
+            error?: string | null;
+            /**
+             * Trust
+             * @default untrusted
+             * @constant
+             */
+            trust: "untrusted";
+        };
+        /** AudioWord */
+        AudioWord: {
+            /** Text */
+            text: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+        };
         /** Body_upload_api_sources_post */
         Body_upload_api_sources_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_audio_api_audio_sources_post */
+        Body_upload_audio_api_audio_sources_post: {
             /** File */
             file: string;
         };
@@ -563,6 +716,25 @@ export interface components {
             /** Trace Url */
             trace_url?: string | null;
         };
+        /** ExperimentAccepted */
+        ExperimentAccepted: {
+            /** Experiment Id */
+            experiment_id: string;
+        };
+        /** ExperimentCase */
+        ExperimentCase: {
+            /** Case Id */
+            case_id: string;
+            /**
+             * Classification
+             * @enum {string}
+             */
+            classification: "unchanged-safe" | "intended-safe-change" | "new-policy-violation" | "pre-existing-violation" | "inconclusive";
+            /** Executions */
+            executions: components["schemas"]["Execution"][];
+            /** Repetition Consistent */
+            repetition_consistent: boolean;
+        };
         /** Health */
         Health: {
             database: components["schemas"]["ComponentHealth"];
@@ -573,6 +745,7 @@ export interface components {
             memory_search?: components["schemas"]["ComponentHealth"];
             tracing?: components["schemas"]["ComponentHealth"];
             vision?: components["schemas"]["ComponentHealth"];
+            transcription?: components["schemas"]["ComponentHealth"];
             /**
              * Demo Identity
              * @default Local demo reviewer
@@ -673,6 +846,11 @@ export interface components {
             reason: "exact_scope" | "semantic";
             /** Semantic Score */
             semantic_score: number | null;
+        };
+        /** ReviewAudioIn */
+        ReviewAudioIn: {
+            /** Reviewed Text */
+            reviewed_text: string;
         };
         /** ReviewEvent */
         ReviewEvent: {
@@ -797,6 +975,88 @@ export interface components {
             /** Exception Id */
             exception_id?: string | null;
         };
+        /** ScopeExperiment */
+        ScopeExperiment: {
+            /** Experiment Id */
+            experiment_id: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "completed" | "inconclusive" | "failed";
+            /**
+             * Admission Evidence
+             * @default false
+             * @constant
+             */
+            admission_evidence: false;
+            /** Candidate Hash */
+            candidate_hash: string;
+            /** Base Version Id */
+            base_version_id: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** Evaluated At */
+            evaluated_at: string;
+            /** Scenarios */
+            scenarios: components["schemas"]["ScopeScenario"][];
+            /** Progress */
+            progress: {
+                [key: string]: number;
+            };
+            /** Cases */
+            cases?: components["schemas"]["ExperimentCase"][];
+            /** Usage */
+            usage?: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error?: string | null;
+            /**
+             * Stress Test
+             * @default Proposal added to every experimental request, including requests outside its scope. Not normal production retrieval.
+             */
+            stress_test: string;
+        };
+        /** ScopeExperimentIn */
+        ScopeExperimentIn: {
+            /** Base Version Id */
+            base_version_id: string;
+        };
+        /** ScopeScenario */
+        ScopeScenario: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Title */
+            title: string;
+            /** Changed Fields */
+            changed_fields: {
+                [key: string]: unknown;
+            };
+            /** Task */
+            task: {
+                [key: string]: unknown;
+            };
+            /** Policy Snapshot */
+            policy_snapshot: {
+                [key: string]: unknown;
+            };
+            /** Expected Action */
+            expected_action: string;
+            /** Rule */
+            rule: string;
+            /** Fixture Hash */
+            fixture_hash: string;
+            retrieval: components["schemas"]["MemoryRetrieval"];
+        };
         /** SelectedCase */
         SelectedCase: {
             /** Case Id */
@@ -823,7 +1083,17 @@ export interface components {
             /** Mime Type */
             mime_type: string;
             /** Image Url */
-            image_url: string;
+            image_url: string | null;
+            /**
+             * Source Kind
+             * @default image
+             * @enum {string}
+             */
+            source_kind: "image" | "audio";
+            /** Audio Source Id */
+            audio_source_id?: string | null;
+            /** Audio Url */
+            audio_url?: string | null;
             /** Extracted Text */
             extracted_text: string;
             /** Quotation */
@@ -1588,6 +1858,476 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Run"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_audio_api_audio_sources_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_audio_api_audio_sources_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioSource"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_audio_source_api_audio_sources__audio_source_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                audio_source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioSource"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    source_audio_api_audio_sources__audio_source_id__audio_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                audio_source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    review_audio_api_audio_sources__audio_source_id__review_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                audio_source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewAudioIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Source"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    start_scope_api_candidates__candidate_id__experiments_scope_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeExperimentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperimentAccepted"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_experiment_api_experiments__experiment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeExperiment"];
                 };
             };
             /** @description Not Found */

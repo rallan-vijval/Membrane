@@ -2,7 +2,7 @@
 import json
 
 from backend.app.config import ROOT
-from backend.app.models import Candidate, ErrorResponse, Health, Run, Source, Version, MemoryEntries, TaskOptions, RevokeResult
+from backend.app.models import Candidate, ErrorResponse, Health, Run, Source, Version, MemoryEntries, TaskOptions, RevokeResult, AudioSource, ScopeExperiment
 
 
 def examples():
@@ -41,6 +41,20 @@ def examples():
         "task_options": TaskOptions(items=[{"fixture_id": "development-01", "description": "SYNTHETIC order 4821 task choice"}], truncated=False),
         "revoke_result": RevokeResult(version_id="version_SYNTHETIC_after_revoke", event_id="event_SYNTHETIC_revoke"),
     }
+    from backend.app.fixtures import tasks, exception
+    from backend.app.policy import POLICY
+    from backend.app.scope_experiments import scenarios
+    synthetic_scenarios = []
+    for item in scenarios(tasks()[1]["task"], {"policy": POLICY, "exceptions": [exception()]}, timestamp):
+        synthetic_scenarios.append({**item, "retrieval": {"case_id": item["scenario_id"], "retrieval_at": timestamp,
+            "profile_id": "SYNTHETIC_PROFILE", "base_version_id": "version_initial_v2", "entries": [], "usage": {}}})
+    docs["audio_source_transcribed"] = AudioSource(audio_source_id="audio_source_SYNTHETIC", created_at=timestamp,
+        status="transcribed", sha256="SYNTHETIC_HASH", duration_seconds=2, audio_url="/api/audio-sources/audio_source_SYNTHETIC/audio",
+        transcript="Order 4821 only", words=[{"text": "Order", "start": 0, "end": 0.5}], model="scribe_v2", language="en")
+    docs["scope_experiment_queued"] = ScopeExperiment(experiment_id="experiment_SYNTHETIC", candidate_id=candidate.candidate_id,
+        created_at=timestamp, status="queued", candidate_hash="SYNTHETIC_HASH", base_version_id="version_initial_v2",
+        profile_id="SYNTHETIC_PROFILE", config={"provider": "SYNTHETIC DOCUMENTATION EXAMPLE"}, evaluated_at=timestamp,
+        scenarios=synthetic_scenarios, progress={"completed": 0, "total": 28}, usage={"model_calls": 0, "max_calls": 56})
     # Revalidate copies as well: model_copy does not itself validate updates.
     return {name: type(doc).model_validate(doc.model_dump()).model_dump() for name, doc in docs.items()}
 

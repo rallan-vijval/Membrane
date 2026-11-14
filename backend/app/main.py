@@ -21,6 +21,9 @@ from .runner import Worker
 from .service import Service
 from .store import Store
 from .voice import Voice
+from .audio_sources import AudioSources
+from .scope_experiments import ScopeExperiments
+from .models import AudioSource, ReviewAudioIn, ScopeExperiment, ScopeExperimentIn, ExperimentAccepted
 
 
 def create_app(settings=None, store=None, provider=None, embeddings=None, tracer=None):
@@ -29,19 +32,25 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
     service = Service(store, provider or Provider(cfg), embeddings, tracer)
     worker = Worker(service)
     voice = Voice(service)
+    audio_sources = AudioSources(service)
+    scope_experiments = ScopeExperiments(service)
 
     @asynccontextmanager
     async def lifespan(app):
         if cfg.worker_enabled:
             worker.start()
+            if cfg.scope_experiments_enabled:
+                scope_experiments.start()
         yield
         worker.stop()
+        scope_experiments.stop()
         if store.client:
             store.client.close()
 
     errors = {status: {"model": ErrorResponse} for status in (404, 409, 422, 429, 502, 503)}
     app = FastAPI(title="Membrane review API", version="1.0.0", lifespan=lifespan, responses=errors)
     app.state.service, app.state.worker = service, worker
+    app.state.audio_sources, app.state.scope_experiments = audio_sources, scope_experiments
     app.add_middleware(CORSMiddleware, allow_origins=[cfg.frontend_origin], allow_methods=["GET", "POST"],
                        allow_headers=["Content-Type", "Idempotency-Key"])
 
@@ -122,7 +131,13 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
         if cfg.voice_enabled:
             voice_health = {"status": "degraded" if cfg.elevenlabs_api_key.get_secret_value() and cfg.elevenlabs_voice_id else "unavailable",
                             "reason": "Voice configured; account credits and model access unverified" if cfg.elevenlabs_api_key.get_secret_value() and cfg.elevenlabs_voice_id else "Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID"}
-        return {"database": database, "model": model, "search": search, "voice": voice_health, "workspace_id": cfg.workspace_id,
+        import shutil
+        transcription = {"status": "disabled", "reason": "Optional transcription is disabled"}
+        if cfg.transcription_enabled:
+            configured = bool(cfg.elevenlabs_api_key.get_secret_value()) and bool(shutil.which(cfg.ffmpeg_path)) and bool(shutil.which(cfg.ffprobe_path))
+            transcription = {"status": "degraded" if configured else "unavailable",
+                "reason": "Configured; verify with a short real recording" if configured else "Configure ElevenLabs key and ffmpeg/ffprobe"}
+        return {"transcription": transcription, "database": database, "model": model, "search": search, "voice": voice_health, "workspace_id": cfg.workspace_id,
                 "vision": vision_health, "embeddings": embedding_health, "memory_search": memory_search, "tracing": tracing_health}
 
     @app.post("/api/sources", response_model=Source, status_code=201)
@@ -187,6 +202,34 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
         return worker.detail(run_id)
 
     Key = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)]
+
+    @app.post("/api/audio-sources", response_model=AudioSource, status_code=201)
+    async def upload_audio(file: Annotated[UploadFile, File()], idempotency_key: Key):
+        data = await file.read(cfg.max_audio_bytes + 1)
+        if len(data) > cfg.max_audio_bytes:
+            raise Problem("audio_size", "Audio exceeds the configured 10 MiB limit", 422)
+        from starlette.concurrency import run_in_threadpool
+        return await run_in_threadpool(audio_sources.create, data, idempotency_key)
+
+    @app.get("/api/audio-sources/{audio_source_id}", response_model=AudioSource)
+    def get_audio_source(audio_source_id: str):
+        return audio_sources.get(audio_source_id)
+
+    @app.get("/api/audio-sources/{audio_source_id}/audio", response_class=FileResponse)
+    def source_audio(audio_source_id: str):
+        return asset("audio_sources", "audio_source_id", audio_source_id, "audio/wav")
+
+    @app.post("/api/audio-sources/{audio_source_id}/review", response_model=Source, status_code=201)
+    def review_audio(audio_source_id: str, body: ReviewAudioIn, idempotency_key: Key):
+        return audio_sources.review(audio_source_id, body.reviewed_text, idempotency_key)
+
+    @app.post("/api/candidates/{candidate_id}/experiments/scope", response_model=ExperimentAccepted, status_code=202)
+    def start_scope(candidate_id: str, body: ScopeExperimentIn, idempotency_key: Key):
+        return scope_experiments.create(candidate_id, body, idempotency_key)
+
+    @app.get("/api/experiments/{experiment_id}", response_model=ScopeExperiment)
+    def get_experiment(experiment_id: str):
+        return scope_experiments.detail(experiment_id)
 
     @app.post("/api/candidates/{candidate_id}/approve", response_model=Candidate)
     def approve(candidate_id: str, body: ApproveIn, idempotency_key: Key):

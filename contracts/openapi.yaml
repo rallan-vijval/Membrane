@@ -528,6 +528,362 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Service Unavailable
+  /api/audio-sources:
+    post:
+      summary: Upload Audio
+      operationId: upload_audio_api_audio_sources_post
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_upload_audio_api_audio_sources_post'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioSource'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/audio-sources/{audio_source_id}:
+    get:
+      summary: Get Audio Source
+      operationId: get_audio_source_api_audio_sources__audio_source_id__get
+      parameters:
+      - name: audio_source_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Audio Source Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioSource'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/audio-sources/{audio_source_id}/audio:
+    get:
+      summary: Source Audio
+      operationId: source_audio_api_audio_sources__audio_source_id__audio_get
+      parameters:
+      - name: audio_source_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Audio Source Id
+      responses:
+        '200':
+          description: Successful Response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/audio-sources/{audio_source_id}/review:
+    post:
+      summary: Review Audio
+      operationId: review_audio_api_audio_sources__audio_source_id__review_post
+      parameters:
+      - name: audio_source_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Audio Source Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewAudioIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/candidates/{candidate_id}/experiments/scope:
+    post:
+      summary: Start Scope
+      operationId: start_scope_api_candidates__candidate_id__experiments_scope_post
+      parameters:
+      - name: candidate_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Candidate Id
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScopeExperimentIn'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentAccepted'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/experiments/{experiment_id}:
+    get:
+      summary: Get Experiment
+      operationId: get_experiment_api_experiments__experiment_id__get
+      parameters:
+      - name: experiment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Experiment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScopeExperiment'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
   /api/candidates/{candidate_id}/approve:
     post:
       summary: Approve
@@ -1278,6 +1634,88 @@ components:
       - side
       - repetition
       title: AudioIn
+    AudioSource:
+      properties:
+        audio_source_id:
+          type: string
+          title: Audio Source Id
+        created_at:
+          type: string
+          title: Created At
+        status:
+          type: string
+          enum:
+          - processing
+          - transcribed
+          - failed
+          title: Status
+        sha256:
+          type: string
+          title: Sha256
+        duration_seconds:
+          type: number
+          title: Duration Seconds
+        audio_url:
+          type: string
+          title: Audio Url
+        transcript:
+          type: string
+          title: Transcript
+          default: ''
+        words:
+          items:
+            $ref: '#/components/schemas/AudioWord'
+          type: array
+          title: Words
+        model:
+          type: string
+          title: Model
+        language:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Language
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+        trust:
+          type: string
+          const: untrusted
+          title: Trust
+          default: untrusted
+      additionalProperties: false
+      type: object
+      required:
+      - audio_source_id
+      - created_at
+      - status
+      - sha256
+      - duration_seconds
+      - audio_url
+      - model
+      title: AudioSource
+    AudioWord:
+      properties:
+        text:
+          type: string
+          title: Text
+        start:
+          type: number
+          minimum: 0.0
+          title: Start
+        end:
+          type: number
+          minimum: 0.0
+          title: End
+      additionalProperties: false
+      type: object
+      required:
+      - text
+      - start
+      - end
+      title: AudioWord
     Body_upload_api_sources_post:
       properties:
         file:
@@ -1288,6 +1726,16 @@ components:
       required:
       - file
       title: Body_upload_api_sources_post
+    Body_upload_audio_api_audio_sources_post:
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          title: File
+      type: object
+      required:
+      - file
+      title: Body_upload_audio_api_audio_sources_post
     Candidate:
       properties:
         candidate_id:
@@ -1570,6 +2018,46 @@ components:
       - output_tokens
       - latency_ms
       title: Execution
+    ExperimentAccepted:
+      properties:
+        experiment_id:
+          type: string
+          title: Experiment Id
+      additionalProperties: false
+      type: object
+      required:
+      - experiment_id
+      title: ExperimentAccepted
+    ExperimentCase:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        classification:
+          type: string
+          enum:
+          - unchanged-safe
+          - intended-safe-change
+          - new-policy-violation
+          - pre-existing-violation
+          - inconclusive
+          title: Classification
+        executions:
+          items:
+            $ref: '#/components/schemas/Execution'
+          type: array
+          title: Executions
+        repetition_consistent:
+          type: boolean
+          title: Repetition Consistent
+      additionalProperties: false
+      type: object
+      required:
+      - case_id
+      - classification
+      - executions
+      - repetition_consistent
+      title: ExperimentCase
     Health:
       properties:
         database:
@@ -1587,6 +2075,8 @@ components:
         tracing:
           $ref: '#/components/schemas/ComponentHealth'
         vision:
+          $ref: '#/components/schemas/ComponentHealth'
+        transcription:
           $ref: '#/components/schemas/ComponentHealth'
         demo_identity:
           type: string
@@ -1788,6 +2278,18 @@ components:
       - reason
       - semantic_score
       title: RetrievedMemory
+    ReviewAudioIn:
+      properties:
+        reviewed_text:
+          type: string
+          maxLength: 16000
+          minLength: 1
+          title: Reviewed Text
+      additionalProperties: false
+      type: object
+      required:
+      - reviewed_text
+      title: ReviewAudioIn
     ReviewEvent:
       properties:
         event_id:
@@ -2033,6 +2535,145 @@ components:
       additionalProperties: false
       type: object
       title: Scope
+    ScopeExperiment:
+      properties:
+        experiment_id:
+          type: string
+          title: Experiment Id
+        candidate_id:
+          type: string
+          title: Candidate Id
+        created_at:
+          type: string
+          title: Created At
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - inconclusive
+          - failed
+          title: Status
+        admission_evidence:
+          type: boolean
+          const: false
+          title: Admission Evidence
+          default: false
+        candidate_hash:
+          type: string
+          title: Candidate Hash
+        base_version_id:
+          type: string
+          title: Base Version Id
+        profile_id:
+          type: string
+          title: Profile Id
+        config:
+          additionalProperties: true
+          type: object
+          title: Config
+        evaluated_at:
+          type: string
+          title: Evaluated At
+        scenarios:
+          items:
+            $ref: '#/components/schemas/ScopeScenario'
+          type: array
+          title: Scenarios
+        progress:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Progress
+        cases:
+          items:
+            $ref: '#/components/schemas/ExperimentCase'
+          type: array
+          title: Cases
+        usage:
+          additionalProperties: true
+          type: object
+          title: Usage
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+        stress_test:
+          type: string
+          title: Stress Test
+          default: Proposal added to every experimental request, including requests
+            outside its scope. Not normal production retrieval.
+      additionalProperties: false
+      type: object
+      required:
+      - experiment_id
+      - candidate_id
+      - created_at
+      - status
+      - candidate_hash
+      - base_version_id
+      - profile_id
+      - config
+      - evaluated_at
+      - scenarios
+      - progress
+      title: ScopeExperiment
+    ScopeExperimentIn:
+      properties:
+        base_version_id:
+          type: string
+          title: Base Version Id
+      additionalProperties: false
+      type: object
+      required:
+      - base_version_id
+      title: ScopeExperimentIn
+    ScopeScenario:
+      properties:
+        scenario_id:
+          type: string
+          title: Scenario Id
+        title:
+          type: string
+          title: Title
+        changed_fields:
+          additionalProperties: true
+          type: object
+          title: Changed Fields
+        task:
+          additionalProperties: true
+          type: object
+          title: Task
+        policy_snapshot:
+          additionalProperties: true
+          type: object
+          title: Policy Snapshot
+        expected_action:
+          type: string
+          title: Expected Action
+        rule:
+          type: string
+          title: Rule
+        fixture_hash:
+          type: string
+          title: Fixture Hash
+        retrieval:
+          $ref: '#/components/schemas/MemoryRetrieval'
+      additionalProperties: false
+      type: object
+      required:
+      - scenario_id
+      - title
+      - changed_fields
+      - task
+      - policy_snapshot
+      - expected_action
+      - rule
+      - fixture_hash
+      - retrieval
+      title: ScopeScenario
     SelectedCase:
       properties:
         case_id:
@@ -2079,8 +2720,27 @@ components:
           type: string
           title: Mime Type
         image_url:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Image Url
+        source_kind:
+          type: string
+          enum:
+          - image
+          - audio
+          title: Source Kind
+          default: image
+        audio_source_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Audio Source Id
+        audio_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Audio Url
         extracted_text:
           type: string
           title: Extracted Text

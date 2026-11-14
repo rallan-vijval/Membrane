@@ -27,6 +27,7 @@ export interface Health {
   memory_search?: IntegrationHealth;
   tracing?: IntegrationHealth;
   vision?: IntegrationHealth;
+  transcription?: IntegrationHealth;
 }
 
 export type Scope =
@@ -46,6 +47,9 @@ export interface Source {
     trusted: boolean;
   };
   image_url: string | null;
+  source_kind?: "image" | "audio";
+  audio_url?: string | null;
+  audio_source_id?: string | null;
   created_at: string;
 }
 
