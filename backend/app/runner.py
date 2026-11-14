@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+from .suite import SUITE_VERSION, CASE_COUNT, EXECUTION_COUNT, TESTING_BUDGET_SECONDS
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -32,8 +34,8 @@ class Worker:
         return (datetime.now(timezone.utc) + timedelta(seconds=seconds)).isoformat()
 
     def claim(self):
-        return self.store.db.evaluation_runs.find_one_and_update(self.store.query(
-            **{"selection.11": {"$exists": True}},
+        return self.store.db.evaluation_runs.find_one_and_update(self.store.query(suite_version=SUITE_VERSION,
+            **{"selection.2": {"$exists": True}},
             **{"$or": [{"status": "queued"}, {"status": "running", "lease_until": {"$lt": now()}}]}),
             {"$set": {"status": "running", "lease_owner": self.owner, "lease_until": self.lease_time()}},
             sort=[("created_at", 1)], return_document=ReturnDocument.AFTER)
@@ -55,65 +57,79 @@ class Worker:
         from .provider import SYSTEM, ARGUMENT_SCHEMA
         config_matches = (run["config"] == self.provider.config() and run["system_prompt"] == SYSTEM
                           and run["tool_schema"] == ARGUMENT_SCHEMA)
-        for index, case in enumerate(run["selection"]):
-            for repetition in (1, 2):
-                sides = ("baseline", "candidate") if (index + repetition) % 2 else ("candidate", "baseline")
-                for side in sides:
-                    if self.stop_event.is_set():
-                        return
-                    if s.db.case_results.find_one(s.query(run_id=run["run_id"], case_id=case["case_id"], side=side, repetition=repetition)):
-                        continue
-                    heartbeat = s.db.evaluation_runs.update_one(s.query(run_id=run["run_id"], status="running", lease_owner=self.owner),
-                                                               {"$set": {"lease_until": self.lease_time()}})
-                    if heartbeat.matched_count != 1:
-                        return
-                    retrieval = next((r for r in run.get("memory_retrieval", []) if r["case_id"] == case["case_id"]), None)
-                    memories = list(retrieval["entries"] if retrieval else run["frozen_memory"])
-                    if side == "candidate":
-                        memories.append(run["frozen_candidate"])
-                    result = s.doc(run_id=run["run_id"], case_id=case["case_id"], side=side, repetition=repetition,
-                        raw_responses=[], attempt=None, tool_outcome=None, checks=[], error=None, calls=0,
-                        input_tokens=0, output_tokens=0, latency_ms=0,
-                        input_hash=digest({"task": case["task"], "memories": memories, "policy": run["policy_snapshot"],
-                                           "tool": run["tool_schema"], "config": run["config"], "system": run["system_prompt"]}))
-                    start = time.monotonic()
-                    before = s.get("evaluation_runs", "run_id", run["run_id"])["model_calls"]
-                    try:
-                        if not config_matches:
-                            raise Problem("config_changed", "Provider configuration changed since run freeze")
-                        if run.get("governance_version") == 2 and (retrieval is None or retrieval["profile_id"] != self.service.embeddings.describe()["profile_id"]):
-                            raise Problem("retrieval_changed", "Frozen governed retrieval is missing or its profile changed")
-                        with self.service.tracing.span("case_execution", {"workspace_id": s.workspace, "run_id": run["run_id"],
-                            "case_id": case["case_id"], "side": side, "repetition": repetition}) as trace:
-                            data, raw, _ = self.provider.decide(case["task"], memories, lambda: s.reserve_call(run["run_id"]))
-                            result["trace_url"] = trace.trace_url
-                        # Preserve raw evidence before schema validation or policy enforcement.
-                        result["raw_responses"] = [raw]
-                        usage = raw.get("usage") or {}
-                        result["input_tokens"], result["output_tokens"] = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
-                        attempt = Attempt.model_validate(data).model_dump()
-                        result["attempt"] = attempt
-                        scope = run["frozen_candidate"]["scope"]
-                        useful = side == "candidate" and scope.get("kind") == "order" and scope.get("order_id") == "4821"
-                        checks, outcome = check_attempt(attempt, case["task"], run["policy_snapshot"]["exceptions"], run["created_at"], useful)
-                        result["checks"], result["tool_outcome"] = checks, outcome
-                    except Exception as exc:
-                        result["error"] = exc.code if isinstance(exc, Problem) else "invalid_or_failed_response"
-                    result["calls"] = s.get("evaluation_runs", "run_id", run["run_id"])["model_calls"] - before
-                    result["latency_ms"] = int((time.monotonic() - start) * 1000)
-                    s.db.case_results.update_one(s.query(run_id=run["run_id"], case_id=case["case_id"], side=side, repetition=repetition),
-                                                 {"$setOnInsert": result}, upsert=True)
-                    completed = s.db.case_results.count_documents(s.query(run_id=run["run_id"]))
-                    s.db.evaluation_runs.update_one(s.query(run_id=run["run_id"], lease_owner=self.owner),
-                                                   {"$set": {"progress.completed": completed}})
+        deadline = time.monotonic() + max(0, TESTING_BUDGET_SECONDS - (
+            datetime.now(timezone.utc) - datetime.fromisoformat(run["created_at"])).total_seconds())
+        work = [(case, side, repetition) for index, case in enumerate(run["selection"])
+                for repetition in (1, 2)
+                for side in (("baseline", "candidate") if (index + repetition) % 2 else ("candidate", "baseline"))]
+        with ThreadPoolExecutor(max_workers=s.settings.max_concurrent_model_calls) as pool:
+            list(pool.map(lambda args: self.execute_one(run, *args, config_matches, deadline), work))
+        if self.stop_event.is_set():
+            return
         self.finish(run)
+
+    def execute_one(self, run, case, side, repetition, config_matches, deadline):
+        s = self.store
+        if self.stop_event.is_set():
+            return
+        if s.db.case_results.find_one(s.query(run_id=run["run_id"], case_id=case["case_id"], side=side, repetition=repetition)):
+            return
+        heartbeat = s.db.evaluation_runs.update_one(s.query(run_id=run["run_id"], status="running", lease_owner=self.owner),
+                                                   {"$set": {"lease_until": self.lease_time()}})
+        if heartbeat.matched_count != 1:
+            return
+        retrieval = next((r for r in run.get("memory_retrieval", []) if r["case_id"] == case["case_id"]), None)
+        memories = list(retrieval["entries"] if retrieval else run["frozen_memory"])
+        if side == "candidate":
+            memories.append(run["frozen_candidate"])
+        result = s.doc(run_id=run["run_id"], case_id=case["case_id"], side=side, repetition=repetition,
+            raw_responses=[], attempt=None, tool_outcome=None, checks=[], error=None, calls=0,
+            input_tokens=0, output_tokens=0, latency_ms=0,
+            input_hash=digest({"task": case["task"], "memories": memories, "policy": run["policy_snapshot"],
+                               "tool": run["tool_schema"], "config": run["config"], "system": run["system_prompt"]}))
+        start = time.monotonic()
+        calls = 0
+        def reserve():
+            nonlocal calls
+            if time.monotonic() >= deadline:
+                raise Problem("evaluation_timeout", "Thirty-second testing budget reached")
+            s.reserve_call(run["run_id"])
+            calls += 1
+        try:
+            if not config_matches:
+                raise Problem("config_changed", "Provider configuration changed since run freeze")
+            if run.get("governance_version") == 2 and (retrieval is None or retrieval["profile_id"] != self.service.embeddings.describe()["profile_id"]):
+                raise Problem("retrieval_changed", "Frozen governed retrieval is missing or its profile changed")
+            with self.service.tracing.span("case_execution", {"workspace_id": s.workspace, "run_id": run["run_id"],
+                "case_id": case["case_id"], "side": side, "repetition": repetition}) as trace:
+                data, raw, _ = self.provider.decide(case["task"], memories, reserve, deadline=min(deadline, time.monotonic() + 8))
+                result["trace_url"] = trace.trace_url
+            # Preserve raw evidence before schema validation or policy enforcement.
+            result["raw_responses"] = [raw]
+            usage = raw.get("usage") or {}
+            result["input_tokens"], result["output_tokens"] = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
+            attempt = Attempt.model_validate(data).model_dump()
+            result["attempt"] = attempt
+            scope = run["frozen_candidate"]["scope"]
+            useful = side == "candidate" and scope.get("kind") == "order" and scope.get("order_id") == "4821"
+            checks, outcome = check_attempt(attempt, case["task"], run["policy_snapshot"]["exceptions"], run["created_at"], useful)
+            result["checks"], result["tool_outcome"] = checks, outcome
+        except Exception as exc:
+            result["error"] = exc.code if isinstance(exc, Problem) else "invalid_or_failed_response"
+        result["calls"] = calls
+        result["latency_ms"] = int((time.monotonic() - start) * 1000)
+        s.db.case_results.update_one(s.query(run_id=run["run_id"], case_id=case["case_id"], side=side, repetition=repetition),
+                                     {"$setOnInsert": result}, upsert=True)
+        completed = s.db.case_results.count_documents(s.query(run_id=run["run_id"]))
+        s.db.evaluation_runs.update_one(s.query(run_id=run["run_id"], lease_owner=self.owner),
+                                       {"$max": {"progress.completed": completed}})
 
     def evidence(self, run):
         results = list(self.store.db.case_results.find(self.store.query(run_id=run["run_id"]), {"_id": 0}))
         from .models import Execution
         cases = []
         for case in run["selection"]:
-            executions = [self.service.public(Execution, e) for e in results if e["case_id"] == case["case_id"]]
+            executions = [self.service.public(Execution, e) for e in sorted(results, key=lambda e: (e["side"], e["repetition"])) if e["case_id"] == case["case_id"]]
             cases.append({"case_id": case["case_id"], "classification": classify(executions), "executions": executions})
         return cases
 
@@ -137,7 +153,7 @@ class Worker:
         unsupported = bool(scope.get("exception_id") and not any(
             e["exception_id"] == scope["exception_id"] and e["order_id"] == scope.get("order_id")
             and e["customer_id"] == scope.get("customer_id") for e in snapshot["exceptions"]))
-        inconclusive = len(kinds) != 12 or "inconclusive" in kinds
+        inconclusive = len(kinds) != CASE_COUNT or "inconclusive" in kinds
         admission = "quarantine" if violation or unsupported else "inconclusive" if inconclusive else "eligible"
         reasons = (["Observed policy violation in baseline or candidate"] if violation else []) + (
             ["Candidate scope claims unsupported trusted authority"] if unsupported else []) + (
@@ -160,5 +176,5 @@ class Worker:
         run["cases"] = self.evidence(run)
         run["summary"] = {**run["summary"], **self.summary(run_id)}
         run["usage"] = {**run["usage"], "model_calls": run["model_calls"],
-                        "max_calls": run["config"]["max_calls"], "initial_execution_estimate": 48, "worst_case_turn_estimate": 144}
+                        "max_calls": run["config"]["max_calls"], "initial_execution_estimate": EXECUTION_COUNT, "worst_case_turn_estimate": EXECUTION_COUNT}
         return self.service.public(Run, run)

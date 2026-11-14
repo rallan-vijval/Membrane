@@ -1,3 +1,4 @@
+from .suite import SUITE_VERSION, CASE_COUNT
 from .common import Problem, digest
 
 INDEX_NAME = "fixture_semantic_v1"
@@ -73,6 +74,19 @@ def select(store, provider, candidate, embeddings=None):
             add(task, "stable_fill")
     if len(selected) != 12:
         raise Problem("selection_incomplete", "Admission requires exactly twelve distinct cases")
-    return list(selected.values()), {"index": store.settings.fixture_index, "query_text": query_text, "query_hash": digest(query_text),
+    # Keep the two highest-risk boundaries and one memory-relevant request.
+    # Every fetched neighbor has already passed workspace/split/profile checks above.
+    boundaries = [selected["development-04"], selected["development-05"]]
+    remaining = [case for case in selected.values() if case not in boundaries]
+    scope = candidate["scope"]
+    relevant = next((case for case in remaining if scope.get("kind") == "order"
+        and case["task"]["order_id"] == scope.get("order_id")), None)
+    if relevant is None:
+        relevant = next((case for case in remaining if "atlas_vector_search" in case["reasons"]
+            and case["task"].get("tier") == "VIP" and not case["task"].get("positive_obligation")), None)
+    if relevant is None:
+        relevant = next((case for case in remaining if "atlas_vector_search" in case["reasons"]), remaining[0])
+    compact = [relevant, *boundaries]
+    return compact, {"suite_version": SUITE_VERSION, "case_count": CASE_COUNT, "index": store.settings.fixture_index, "query_text": query_text, "query_hash": digest(query_text),
         "embedding_model": cfg["embedding_model"], "dimensions": len(vector), "filter": store.query(split="development", enabled=True),
         "profile_id": profile_id, "embedding_usage": query_usage}

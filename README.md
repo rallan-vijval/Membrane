@@ -19,7 +19,7 @@ A new memory is tested before the agent may keep it.
 1. **Stage.** A source (the supervisor's note) is uploaded and a candidate memory is proposed from it. The
    candidate is stored apart from active memory; the live agent cannot see it.
 2. **Replay.** Twelve synthetic support requests are run in fresh sessions, twice with current memory and
-   twice with the candidate added: 48 runs.
+   twice with the candidate added: 12 decisions across 3 selected requests, with two calls running concurrently.
 3. **Compare actions.** Every refund the agent tried is checked against fixed policy. The review screen
    shows the exact tool arguments that changed, for example `waive_return: false → true`.
 4. **Decide.** A candidate that breaks policy is quarantined. A reviewer can narrow it to order 4821 and

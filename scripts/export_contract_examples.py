@@ -12,7 +12,7 @@ def examples():
         scope={"kind": "global"}, parent_candidate_id=None, base_version_id="version_initial_v1",
         content_hash="SYNTHETIC_EXAMPLE_NOT_A_REAL_HASH", status="staged")
     run = Run(run_id="run_SYNTHETIC", candidate_id=candidate.candidate_id, created_at=timestamp,
-        status="queued", admission=None, reasons=[], progress={"completed": 0, "total": 48},
+        status="queued", admission=None, reasons=[], progress={"completed": 0, "total": 12},
         selection=[], selection_metadata={}, cases=[], summary={},
         config={"provider": "SYNTHETIC DOCUMENTATION EXAMPLE", "agent_model": "not-a-real-model"},
         usage={"model_calls": 0}, live=False, base_version_id=candidate.base_version_id,

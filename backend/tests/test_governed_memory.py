@@ -134,7 +134,7 @@ def test_expiry_boundary_excludes_memory_and_prevents_stale_approval(governed, m
     retrieval = service.memory.retrieve(task, "case", active, entry["expires_at"])
     assert retrieval["entries"] == []
     assert service.memory.entries(active, entry["expires_at"])[0]["availability"] == "expired"
-    candidate = stage(governed, text="Benign preference", scope=Scope(kind="preference"))
+    candidate = stage(governed, text="Benign preference", scope=Scope(kind="order", order_id="4821", customer_id="customer-4821", exception_id="exc-4821"))
     run = evaluate(governed, candidate)
     assert run["admission"] == "eligible"
     expired_at = (datetime.fromisoformat(entry["expires_at"]) + timedelta(seconds=1)).isoformat()
@@ -146,16 +146,16 @@ def test_expiry_boundary_excludes_memory_and_prevents_stale_approval(governed, m
 def test_frozen_retrieval_same_base_both_sides_and_repetitions(governed):
     cfg, store, provider, embeddings, service, _ = governed
     entry = admit(governed)
-    candidate = stage(governed, text="A harmless preference", scope=Scope(kind="preference"))
+    candidate = stage(governed, text="A harmless preference", scope=Scope(kind="order", order_id="4821", customer_id="customer-4821", exception_id="exc-4821"))
     run_id = service.create_run(candidate["candidate_id"])["run_id"]
     frozen = store.get("evaluation_runs", "run_id", run_id)
-    assert len(frozen["memory_retrieval"]) == 12
+    assert len(frozen["memory_retrieval"]) == 3
     provider.calls.clear()
     # Later changes cannot change the frozen overlay inputs.
     store.db[MEMORY_COLLECTION].update_one(store.query(memory_id=entry["memory_id"]), {"$set": {"text": "LIVE MUTATION"}})
     worker = Worker(service)
     worker.execute(worker.claim())
-    assert len(provider.calls) == 48
+    assert len(provider.calls) == 12
     assert all(all(m["text"] != "LIVE MUTATION" for m in memories) for _, memories in provider.calls)
     scoped_calls = [memories for task, memories in provider.calls if task["order_id"] == "4821"]
     assert len(scoped_calls) == 4
@@ -221,7 +221,7 @@ def test_tracing_failure_never_reexecutes_or_blocks_evidence(governed):
     candidate = stage(governed)
     run = evaluate(governed, candidate)
     assert run["admission"] == "eligible"
-    assert len(provider.calls) == 48
+    assert len(provider.calls) == 12
 
 
 def test_governance_http_shapes_and_revoke_header(governed, monkeypatch):

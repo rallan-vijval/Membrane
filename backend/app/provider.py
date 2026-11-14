@@ -76,7 +76,7 @@ class Provider:
                 "governed_memory_enabled": self.settings.governed_memory_enabled,
                 "max_calls": self.settings.max_run_model_calls}
 
-    def _response(self, model, instructions, content, schema, reserve=None, vision=False):
+    def _response(self, model, instructions, content, schema, reserve=None, vision=False, deadline=None):
         if not model:
             raise Problem("model_unavailable", "Set AGENT_MODEL and VISION_MODEL to accessible model IDs", 503)
         calls = 0
@@ -87,7 +87,7 @@ class Provider:
             client = self._vision_client
         else:
             client = self.client
-        for retry in range(2):
+        for retry in range(1 if deadline is not None else 2):
             if reserve:
                 reserve()
             calls += 1
@@ -98,10 +98,21 @@ class Provider:
                     output_format["strict"] = True
                 else:
                     kwargs["reasoning"] = {"effort": "none"}
-                with self._semaphore:
+                remaining = max(0, deadline - time.monotonic()) if deadline is not None else None
+                acquired = self._semaphore.acquire(timeout=remaining) if remaining is not None else self._semaphore.acquire()
+                if not acquired:
+                    raise Problem("evaluation_timeout", "Evaluation testing budget reached", 502)
+                try:
+                    if deadline is not None:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise Problem("evaluation_timeout", "Evaluation testing budget reached", 502)
+                        kwargs["timeout"] = remaining
                     response = client.responses.create(model=model, instructions=instructions, input=content,
                         text={"format": output_format},
-                        max_output_tokens=self.settings.model_max_output_tokens, store=False, **kwargs)
+                        max_output_tokens=min(400, self.settings.model_max_output_tokens) if deadline is not None else self.settings.model_max_output_tokens, store=False, **kwargs)
+                finally:
+                    self._semaphore.release()
                 # Even malformed/refused/incomplete responses must remain inspectable evidence.
                 try:
                     data = json.loads(response.output_text) if response.status == "completed" else None
@@ -109,6 +120,8 @@ class Provider:
                     data = None
                 return data, response.model_dump(mode="json"), calls
             except (openai.APIConnectionError, openai.APITimeoutError, openai.RateLimitError, openai.InternalServerError):
+                if deadline is not None:
+                    raise Problem("evaluation_timeout", "Evaluation provider deadline or transient failure; no automatic retry", 502)
                 if retry:
                     raise Problem("provider_error", "Transient provider error after bounded retry", 502)
                 time.sleep(0.5)
@@ -171,9 +184,9 @@ class Provider:
             raise Problem("dimension_mismatch", "Actual embedding length differs from configured dimensions", 503)
         return vectors
 
-    def decide(self, task, memories, reserve):
+    def decide(self, task, memories, reserve, deadline=None):
         # Evaluation obligations/labels are checker-only metadata, never model hints.
         visible_task = {k: v for k, v in task.items() if k != "positive_obligation"}
         return self._response(self.settings.agent_model, SYSTEM,
             [{"role": "user", "content": json.dumps({"trusted_task_facts": visible_task, "untrusted_memory": memories})}],
-            DECISION_SCHEMA, reserve)
+            DECISION_SCHEMA, reserve, deadline=deadline)

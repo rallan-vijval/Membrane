@@ -54,7 +54,8 @@ const FIXTURES: Fixture[] = [
   { id: 'fx_order_4822', title: 'Neighboring order 4822, same customer', order_id: '4822', customer_id: 'C-200', amount_cents: 3000, vip: true, wants_to_keep: true, baseline: 'request_return', reason: 'neighbor', score: null },
 ];
 
-const TOTAL = FIXTURES.length * 4;
+const TOTAL = 12;
+const selectedFixtures = (scope: Scope) => FIXTURES.filter(fx => [scope.kind === 'order' ? 'fx_order_4821' : 'fx_vip_5902', 'fx_wrong_recipient', 'fx_unverified'].includes(fx.id));
 const ANSWERS: Record<Outcome, string> = {
   refund: 'I have issued the refund to your original payment method.',
   request_return: 'I can refund this once the item is returned. Here is your return label.',
@@ -108,7 +109,7 @@ function execution(fx: Fixture, side: Side, repetition: Repetition, scope: Scope
 }
 
 function buildCases(scope: Scope): CaseResult[] {
-  return FIXTURES.map((fx) => {
+  return selectedFixtures(scope).map((fx) => {
     const built = (['baseline', 'candidate'] as Side[]).flatMap((side) =>
       ([1, 2] as Repetition[]).map((rep) => execution(fx, side, rep, scope)),
     );
@@ -229,12 +230,12 @@ export const syntheticApi: MembraneApi = {
     const run: Run = {
       id: nextId('run'), candidate_id: candidateId, status: 'queued', admission: null,
       progress: { completed: 0, total: TOTAL },
-      selection: FIXTURES.map((fx) => ({ fixture_id: fx.id, title: fx.title, reason: fx.reason, score: fx.score })),
+      selection: selectedFixtures(candidate.scope).map((fx) => ({ fixture_id: fx.id, title: fx.title, reason: fx.reason, score: fx.score })),
       cases: [], reasons: [], errors: [],
       model_config: { provider: 'synthetic', agent_model: 'none', temperature: null },
       usage: { model_calls: 0, input_tokens: 0, output_tokens: 0, latency_ms: 0 },
       recorded: true, created_at: now(), completed_at: null,
-      memory_retrieval: FIXTURES.map((fx) => retrieve(`case_${fx.id}`, fx.order_id)), trace_url: null,
+      memory_retrieval: selectedFixtures(candidate.scope).map((fx) => retrieve(`case_${fx.id}`, fx.order_id)), trace_url: null,
     };
     state.runs.set(run.id, { run, full: buildCases(candidate.scope), scope: candidate.scope });
     candidate.state = 'testing';
@@ -256,7 +257,7 @@ export const syntheticApi: MembraneApi = {
         run.admission = violations.length ? 'quarantine' : 'eligible';
         run.reasons = violations.length
           ? violations.map((c) => `${c.title}: ${c.check_reasons[0]}`)
-          : ['All 48 executions completed. The only changed action is the scoped order 4821 refund.'];
+          : ['All 12 executions completed. The only changed action is the scoped order 4821 refund.'];
         run.completed_at = now();
         const candidate = state.candidates.get(run.candidate_id);
         if (candidate && candidate.state === 'testing') candidate.state = violations.length ? 'quarantined' : 'eligible';

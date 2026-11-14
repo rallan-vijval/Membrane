@@ -27,7 +27,7 @@ class FakeProvider:
         return {"extracted_text": "Order 4821 exception", "quotation": "Order 4821", "proposed_text": "order rule",
                 "proposed_scope": {"kind": "order", "order_id": "4821", "customer_id": "customer-4821", "exception_id": "exc-4821"}}, {"synthetic": True}
 
-    def decide(self, task, memories, reserve):
+    def decide(self, task, memories, reserve, deadline=None):
         reserve()
         self.calls.append((task.copy(), list(memories)))
         if self.fail:
@@ -67,7 +67,7 @@ def env(tmp_path):
 @pytest.fixture
 def fake_selection(monkeypatch):
     def select(store, provider, candidate):
-        docs = list(store.db.task_fixtures.find(store.query(split="development")).sort("fixture_id", 1).limit(12))
+        docs = list(store.db.task_fixtures.find(store.query(split="development")).sort("fixture_id", 1).limit(3))
         return [{"case_id": d["fixture_id"], "description": d["description"], "task": d["task"],
                  "reasons": ["EXPLICIT TEST SELECTION"], "semantic_score": None} for d in docs], {"test_only": True}
     monkeypatch.setattr("backend.app.service.select", select)

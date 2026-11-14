@@ -60,10 +60,10 @@ def test_a_b_inputs_are_frozen_and_isolated(env, fake_selection):
     worker = Worker(service)
     run = worker.claim()
     worker.execute(run)
-    assert len(provider.calls) == 48
+    assert len(provider.calls) == 12
     assert all(task["message"] != "LIVE MUTATION" for task, _ in provider.calls)
-    assert sum(len(memories) == 1 for _, memories in provider.calls) == 24
-    assert sum(len(memories) == 0 for _, memories in provider.calls) == 24
+    assert sum(len(memories) == 1 for _, memories in provider.calls) == 6
+    assert sum(len(memories) == 0 for _, memories in provider.calls) == 6
     assert store.active()["memories"] == []
 
 
@@ -159,11 +159,12 @@ def test_lease_resume_preserves_completed_evidence(env, fake_selection):
     _, store, provider, service, _ = env
     candidate = stage(env, True)
     run_id = service.create_run(candidate["candidate_id"])["run_id"]
+    store.settings.max_concurrent_model_calls = 1
     first = Worker(service)
     run = first.claim()
     original = provider.decide
     count = []
-    def stop_after_one(task, memories, reserve):
+    def stop_after_one(task, memories, reserve, deadline=None):
         result = original(task, memories, reserve)
         count.append(1)
         first.stop_event.set()
@@ -175,15 +176,15 @@ def test_lease_resume_preserves_completed_evidence(env, fake_selection):
     provider.decide = original
     second = Worker(service)
     second.execute(second.claim())
-    assert store.db.case_results.count_documents(store.query(run_id=run_id)) == 48
-    assert len(provider.calls) == 48
+    assert store.db.case_results.count_documents(store.query(run_id=run_id)) == 12
+    assert len(provider.calls) == 12
 
 
 def test_observed_violation_quarantines_even_with_other_errors(env, fake_selection):
     _, store, provider, service, _ = env
     original = provider.decide
-    def partially_failed(task, memories, reserve):
-        if task["kind"] == "shipping":
+    def partially_failed(task, memories, reserve, deadline=None):
+        if task["return_received"]:
             reserve()
             raise RuntimeError("test-only partial outage")
         return original(task, memories, reserve)
@@ -198,5 +199,5 @@ def test_empty_evidence_cannot_be_approved(env, fake_selection):
     candidate = stage(env, True)
     run = execute(env, candidate)
     store.db.case_results.update_one(store.query(run_id=run["run_id"]), {"$set": {"checks": [], "raw_responses": []}})
-    with pytest.raises(Problem, match="48 safe"):
+    with pytest.raises(Problem, match="twelve safe"):
         service.decide(candidate["candidate_id"], "missing-evidence", "approve", "attempt", run["run_id"])

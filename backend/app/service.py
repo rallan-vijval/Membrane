@@ -1,3 +1,4 @@
+from .suite import SUITE_VERSION, CASE_COUNT, EXECUTION_COUNT
 import hashlib
 from functools import wraps
 from threading import RLock
@@ -93,7 +94,7 @@ class Service:
             raise Problem("candidate_busy", "Another operation changed this candidate")
         snapshot = self.policy_snapshot()
         run = s.doc(run_id=run_id, candidate_id=candidate_id, status="queued", admission=None, reasons=[],
-            progress={"completed": 0, "total": 48}, selection=[], selection_metadata={}, summary={}, usage={},
+            progress={"completed": 0, "total": EXECUTION_COUNT}, selection=[], selection_metadata={}, summary={}, usage={}, suite_version=SUITE_VERSION,
             config=self.provider.config(), base_version_id=active["version_id"], candidate_hash=candidate["content_hash"],
             frozen_candidate={"text": candidate["text"], "scope": candidate["scope"], "ttl_seconds": candidate.get("ttl_seconds", 3600)}, frozen_memory=active["memories"],
             policy_snapshot=snapshot, policy_hash=digest(snapshot), tool_schema=ARGUMENT_SCHEMA, system_prompt=SYSTEM,
@@ -120,11 +121,18 @@ class Service:
     def reconcile(self):
         """A receipt on the authoritative state pointer makes interrupted decisions recoverable."""
         s = self.store
+        # Older unfinished suites are not resumed under a different coverage contract.
+        for old in s.db.evaluation_runs.find(s.query(suite_version={"$ne": SUITE_VERSION}, status={"$in": ["queued", "running"]})):
+            s.db.evaluation_runs.update_one(s.query(run_id=old["run_id"], status=old["status"]),
+                {"$set": {"status": "inconclusive", "admission": "inconclusive", "lease_owner": None,
+                          "reasons": ["Test suite changed; start a new test"]}})
+            s.db.memory_candidates.update_one(s.query(candidate_id=old["candidate_id"], latest_run_id=old["run_id"], status="testing"),
+                {"$set": {"status": "inconclusive"}})
         cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max(180, s.settings.model_timeout_seconds * 3 + 30))).isoformat()
         # A crash during suite preparation must not leave a candidate testing forever.
-        abandoned = list(s.db.evaluation_runs.find(s.query(status="queued", created_at={"$lt": cutoff}, **{"selection.11": {"$exists": False}})))
+        abandoned = list(s.db.evaluation_runs.find(s.query(status="queued", created_at={"$lt": cutoff}, **{"selection.2": {"$exists": False}})))
         for run in abandoned:
-            s.db.evaluation_runs.update_one(s.query(run_id=run["run_id"], status="queued", **{"selection.11": {"$exists": False}}),
+            s.db.evaluation_runs.update_one(s.query(run_id=run["run_id"], status="queued", **{"selection.2": {"$exists": False}}),
                 {"$set": {"status": "inconclusive", "admission": "inconclusive", "reasons": ["Interrupted during suite preparation; retest required"]}})
             s.db.memory_candidates.update_one(s.query(candidate_id=run["candidate_id"], status="testing", latest_run_id=run["run_id"]),
                                               {"$set": {"status": "inconclusive"}})
@@ -160,14 +168,15 @@ class Service:
         version_id = None
         if decision == "approve":
             run = s.get("evaluation_runs", "run_id", run_id)
-            if (run["status"] != "completed" or run["admission"] != "eligible" or run["progress"]["completed"] != 48
+            if (run["status"] != "completed" or run["admission"] != "eligible" or run["progress"]["completed"] != EXECUTION_COUNT
+                or run.get("suite_version") != SUITE_VERSION or len(run["selection"]) != CASE_COUNT
                 or run["candidate_id"] != candidate_id or cand["latest_run_id"] != run_id
                 or run["candidate_hash"] != cand["content_hash"] or cand["content_hash"] != content_hash(cand["text"], cand["scope"], cand.get("ttl_seconds", 3600))
                 or run["policy_hash"] != digest(self.policy_snapshot()) or run["base_version_id"] != state["active_memory_version_id"]):
                 raise Problem("stale_evidence", "Approval requires exact current passing candidate, base, and policy evidence")
             if s.settings.governed_memory_enabled:
                 self.memory.require_enabled()
-                if run.get("governance_version") != 2 or len(run.get("memory_retrieval", [])) != 12:
+                if run.get("governance_version") != 2 or len(run.get("memory_retrieval", [])) != CASE_COUNT:
                     raise Problem("stale_evidence", "Retest using the initialized governed-memory profile")
                 if any(r["profile_id"] != self.embeddings.describe()["profile_id"] for r in run["memory_retrieval"]):
                     raise Problem("stale_evidence", "Embedding profile changed; retest")
@@ -177,10 +186,10 @@ class Service:
             expected_keys = {(case["case_id"], side, repetition) for case in run["selection"]
                              for side in ("baseline", "candidate") for repetition in (1, 2)}
             actual_keys = {(r["case_id"], r["side"], r["repetition"]) for r in results}
-            if (len(results) != 48 or actual_keys != expected_keys or any(
+            if (len(results) != EXECUTION_COUNT or actual_keys != expected_keys or any(
                 r["error"] or not r["raw_responses"] or not r["attempt"] or not r["checks"]
                 or any(not c["passed"] for c in r["checks"]) for r in results)):
-                raise Problem("incomplete_evidence", "All 48 safe completed executions are required")
+                raise Problem("incomplete_evidence", "All twelve safe completed executions are required")
             # An exception may expire after testing even when its document hash is unchanged.
             from .policy import enforce
             cases = {case["case_id"]: case for case in run["selection"]}

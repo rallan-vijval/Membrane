@@ -79,14 +79,14 @@ def test_provider_malformed_and_incomplete_response_preserved(env):
 def test_malformed_attempt_is_inconclusive_but_raw_response_survives(env, fake_selection):
     cfg, store, provider, service, _ = env
     original = provider.decide
-    def malformed(task, memories, reserve):
+    def malformed(task, memories, reserve, deadline=None):
         data, raw, calls = original(task, memories, reserve)
         return None, raw, calls
     provider.decide = malformed
     run = execute(env, stage(env, True))
     assert run["admission"] == "inconclusive"
     assert all(e["raw_responses"] and e["error"] for c in run["cases"] for e in c["executions"])
-    assert run["summary"]["input_tokens"] == 480
+    assert run["summary"]["input_tokens"] == 120
 
 
 def test_config_change_on_restart_cannot_pass(env, fake_selection):

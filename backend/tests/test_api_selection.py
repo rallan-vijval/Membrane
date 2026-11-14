@@ -80,8 +80,8 @@ def test_selection_sentinels_neighbors_dedup_and_filters(env, monkeypatch):
         return [{**doc, "semantic_score": 0.9} for doc in docs[:4]]
     monkeypatch.setattr(store.db.task_fixtures, "aggregate", aggregate)
     selection, meta = select(store, provider, candidate)
-    assert len(selection) == len({c["case_id"] for c in selection}) == 12
-    assert {d["fixture_id"] for d in docs if d["sentinel"]} <= {c["case_id"] for c in selection}
+    assert len(selection) == len({c["case_id"] for c in selection}) == 3
+    assert {"development-04", "development-05"} <= {c["case_id"] for c in selection}
     assert "development-01" in {c["case_id"] for c in selection}
     assert all(c["case_id"].startswith("development") for c in selection)
     assert captured[0][0]["$vectorSearch"]["filter"] == store.query(split="development", enabled=True)

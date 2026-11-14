@@ -98,5 +98,5 @@ def run_preflight(store, provider):
             "checked_at": now(), "provider_config": provider.config(), "profile_id": profile_id,
             "model": statuses["model"], "vision": statuses["vision"], "embeddings": statuses["embeddings"],
             "known_neighbor_passed": known, "memory_known_neighbor_passed": memory_known}}})
-    return {"checks": statuses, "usage": usage, "calls": {"admission_initial": 48,
-        "single_turn_max_with_one_transient_retry": 96, "configured_cap": cfg.max_run_model_calls}, "preflight_is_billable": True}
+    return {"checks": statuses, "usage": usage, "calls": {"admission_initial": 12,
+        "admission_max_calls": 12, "configured_cap": cfg.max_run_model_calls}, "preflight_is_billable": True}

@@ -33,3 +33,11 @@ Browser APIs are synthetic fixtures except the existing local backend health smo
 - Full evidence, scope experiments, quarantine and usage/history statistics are grouped under Evidence and tools. Saved evidence and experiment URLs open the necessary disclosures automatically.
 - The phone comparison grid fits all four decisions without sideways scrolling. Keyboard focus, selection and drilldown remain functional.
 - Design reference: https://www.nngroup.com/articles/progressive-disclosure/ (prioritize frequent decisions and disclose secondary controls).
+
+## 2026-11-14: Smaller normal admission suite
+
+The normal test is now three requests and twelve paired decisions, with concurrency capped at two. There is no separate demo mode or new UI selector. Cases cover unverified ownership, redirected payment and one memory-relevant refund. The existing 24 development fixtures and held-out fixtures remain available; the live admission sample is smaller.
+
+Generation has a 30-second budget from run creation and an eight-second per-request bound, with no automatic generation retry. Failures/timeouts retain inconclusive evidence. Approval requires all twelve exact current results and the compact-v1 suite version. Older finished results remain readable; interrupted older suites require a new test.
+
+Validation: 105 backend tests passed, 1 skipped; 25 browser tests passed; production frontend build passed. A real Atlas/DeepSeek run completed 12/12 decisions without request errors in 30.2 seconds including 12.41 seconds preparation. Its actual policy verdict was quarantine; no memory was approved. This is a measured example, not a guaranteed network completion time. Backend restarted locally with the new suite.
