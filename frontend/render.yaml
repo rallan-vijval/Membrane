@@ -1,9 +1,11 @@
+# Static synthetic demo only; this does not deploy the live backend.
+# Configure Render to read this Blueprint at frontend/render.yaml.
 services:
   - type: web
     name: membrane-review-demo
     runtime: static
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_SYNTHETIC

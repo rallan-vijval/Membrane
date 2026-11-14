@@ -16,7 +16,7 @@ class EmbeddingConfig:
     max_retries: int = 1
 
     def __post_init__(self):
-        if self.provider not in {"openai", "voyage", "deepseek"}:
+        if self.provider not in {"openai", "voyage"}:
             raise ValueError("Unsupported embedding provider")
         if not self.api_key.strip() or not self.model.strip():
             raise ValueError("Embedding credentials and model are required")
@@ -94,9 +94,6 @@ def create_embedding_client(config, semaphore):
     if config.provider == "openai":
         from .provider_openai import OpenAIClient
         return OpenAIClient(config, semaphore)
-    if config.provider == "deepseek":
-        from .provider_deepseek import DeepSeekClient
-        return DeepSeekClient(config, semaphore)
     from .provider_voyage import VoyageClient
     return VoyageClient(config, semaphore)
 

@@ -61,3 +61,8 @@ def test_probe_does_not_reacquire_semaphore(monkeypatch):
     c._request = lambda *args: ([[1, 0, 0]], 1)
     monkeypatch.setattr("backend.app.integrations.api.create_embedding_client", lambda *args: c)
     assert probe_provider(c.config, c.semaphore)["status"] == "ok"
+
+
+def test_deepseek_generation_is_not_an_embedding_provider():
+    with pytest.raises(ValueError, match="Unsupported embedding provider"):
+        EmbeddingConfig("deepseek", "deepseek-flash", 1024, "test-key")

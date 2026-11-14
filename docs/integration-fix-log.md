@@ -21,3 +21,12 @@ Reviewed 5d22cf6 against main a8520c6. This checkpoint adds seven browser tests 
 Consolidated the working checkout into C:\MongoDB\membrane on main. Removed clean obsolete backend/frontend/provider-review/integration worktrees after recreating the Python environment and frontend dependencies in the main checkout. Branches/history remain available. Kept offline npm tooling under C:\MongoDB\.tools and preserved integration screenshots under artifacts/integration-review. Created an ignored local .env from the example with blank credentials.
 
 A fresh .env exposed the legacy Atlas test module loading configuration during collection. It now requires RUN_LIVE_INTEGRATION=1 before loading .env, matching the backend live-test opt-in and preventing ordinary test collection from enabling database tests or contaminating offline settings. Verified in the canonical checkout: 95 passed, 2 skipped; pip check and frontend production build passed.
+
+
+## Remote main and configuration integration
+
+Integrated remote main 17eb393. Retained frontend/render.yaml as an explicitly synthetic static demo and changed its build to npm ci for lockfile consistency. Removed the unverified DeepSeek /embeddings client and factory option: application Settings never accepted that provider, and generation/vision already use the dedicated DeepSeek Responses integration. Voyage remains the selected embedding provider. Added a regression that rejects DeepSeek embedding configuration.
+
+Simplified .env.example into database, DeepSeek, Voyage, limits and optional-service sections; removed legacy static-demo variables from the active template. The ignored local .env was normalized without changing supported values, and its original was preserved in ignored .env.before-cleanup. No credentials committed. Local live test remains blocked by an unfinished MongoDB URI and missing DeepSeek/Voyage keys.
+
+Verification: 96 backend tests passed, 2 live checks skipped; pip check and TypeScript/Vite build passed. All 14 browser tests passed with the canonical checkout/configuration.

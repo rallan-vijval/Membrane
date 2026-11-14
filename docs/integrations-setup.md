@@ -7,10 +7,10 @@ Copy `.env.example` into an ignored `.env` in the checkout you will run. Supply 
 From the repository root:
 
 ```powershell
-python scripts/provider_preflight.py
-python scripts/backend_setup.py seed --with-embeddings
-python scripts/backend_setup.py index
-python scripts/backend_setup.py preflight
+python -m scripts.provider_preflight
+python -m scripts.backend_setup seed --with-embeddings
+python -m scripts.backend_setup index
+python -m scripts.backend_setup preflight
 ```
 
 These are live operations. The provider preflight sends one tiny embedding, at most one retry. Seeding writes only the configured workspace and makes embedding calls; index creation needs Atlas permissions. Wait for both indexes to become queryable and rerun preflight. Full preflight checks actual generation, image extraction, embeddings and both known-neighbor searches. A failure is a failure; there is no synthetic fallback.
@@ -20,3 +20,5 @@ The synchronous facade uses a shared thread semaphore, explicit SDK clients, dis
 Optional LangSmith exports only an allowlist of identifiers/status/counters on a bounded daemon queue, with no prompts or documents. Delivery is best effort; pending spans may be lost on shutdown. Trace URLs remain null. Tracing failure never changes business results. No live tracing delivery has been verified yet.
 
 Official references: https://docs.voyageai.com/docs/embeddings and https://api-docs.deepseek.com/guides/responses_api/.
+
+The Render Blueprint at `frontend/render.yaml` intentionally builds a static synthetic demo. It neither deploys FastAPI nor exercises Atlas or DeepSeek. Local live testing uses Vite at http://127.0.0.1:5173 without `?synthetic=1` and a separate FastAPI process on port 8000. DeepSeek is supported for generation/vision, not as an embedding provider; keep EMBEDDING_PROVIDER=voyage.
