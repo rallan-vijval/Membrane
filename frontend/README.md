@@ -79,3 +79,21 @@ Tests start local Vite and FastAPI servers, disable the paid-work worker, and us
 7. **(2:45) Reload the page.** Everything comes back from Atlas.
 
 If the model does not reproduce the broad-rule regression live, say so. Do not present synthetic mode as a result. Synthetic mode stores rehearsal state only in browser memory; it does not survive reload. The reload-persistence claim applies to the connected Atlas flow; the browser contract test exercises reload using explicit HTTP fixtures.
+
+## What you can drop in
+
+The API accepts one PNG or JPEG (5 MiB, 20 megapixels). The source panel turns other files into
+that in the browser (`src/intake.ts`) and shows a note saying what it did. It never summarizes
+or rewrites content.
+
+| File | What is sent |
+| --- | --- |
+| PNG, JPEG | The file itself (shrunk only if over the limits) |
+| Other images (WebP, GIF, BMP) | The same picture, re-encoded |
+| PDF | Page 1, rendered as an image; the note says how many pages were left out |
+| Text, Markdown, CSV, JSON | The text typeset as an image, first 110 lines |
+| Video (MP4, WebM, MOV) | The one frame the reviewer pauses on and picks; sound is ignored |
+| Word, Excel, PowerPoint | Not supported: export as PDF first |
+
+pdf.js 6.2.108 is vendored unmodified under `public/vendor/pdfjs/` (Apache-2.0) and fetched only
+when a PDF is dropped, so it adds no npm dependency and the lockfile is unchanged.

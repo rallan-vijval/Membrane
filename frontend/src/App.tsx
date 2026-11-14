@@ -11,9 +11,13 @@ import {
   type Source,
 } from './api';
 import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
+import { Inbox } from './Inbox';
 import { describeError } from './util';
 
 const POLL_MS = 2000;
+
+type View = 'review' | 'inbox';
+const initialView = (): View => (new URLSearchParams(window.location.search).get('view') === 'inbox' ? 'inbox' : 'review');
 
 function readUrl() {
   const p = new URLSearchParams(window.location.search);
@@ -40,6 +44,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [view, setView] = useState<View>(initialView);
   const alive = useRef(true);
 
   const fail = useCallback((err: unknown) => {
@@ -101,12 +106,12 @@ export function App() {
     const tick = async () => {
       try {
         const next = await api.getRun(runId);
+        // On the final poll read the candidate first: setting a terminal run ends this effect,
+        // and the candidate's new state (eligible/quarantined) would otherwise be dropped.
+        const c = TERMINAL_RUN.has(next.status) ? await api.getCandidate(next.candidate_id) : null;
         if (stopped) return;
+        if (c) setCandidate(c);
         setRun(next);
-        if (TERMINAL_RUN.has(next.status)) {
-          const c = await api.getCandidate(next.candidate_id);
-          if (!stopped) setCandidate(c);
-        }
       } catch (err) {
         if (!stopped) fail(err);
       } finally {
@@ -139,6 +144,20 @@ export function App() {
       setCandidate(null);
       setRun(null);
     });
+
+  const show = (next: View) => {
+    const p = new URLSearchParams(window.location.search);
+    if (next === 'inbox') p.set('view', 'inbox');
+    else p.delete('view');
+    const query = p.toString();
+    window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname);
+    setView(next);
+  };
+
+  const onSendToReview = (file: File) => {
+    show('review');
+    void onUpload(file);
+  };
 
   const onStage = (text: string, scope: Scope) =>
     act('Staging…', async () => {
@@ -198,7 +217,12 @@ export function App() {
         </div>
       )}
       {busy && <div className="busy" role="status">{busy}</div>}
-      <main className="columns">
+      <nav className="views" aria-label="Views">
+        <button type="button" className={view === 'inbox' ? 'view view-on' : 'view'} aria-current={view === 'inbox' ? 'page' : undefined} onClick={() => show('inbox')}>Support inbox</button>
+        <button type="button" className={view === 'review' ? 'view view-on' : 'view'} aria-current={view === 'review' ? 'page' : undefined} onClick={() => show('review')}>Memory review</button>
+      </nav>
+      <Inbox active={active} hidden={view !== 'inbox'} disabled={busy !== null} onSendToReview={onSendToReview} />
+      <main className="columns" hidden={view !== 'review'}>
         <SourcePanel
           source={source}
           candidate={candidate}
@@ -210,7 +234,7 @@ export function App() {
         <RunPanel candidate={candidate} run={run} voice={health?.voice ?? null} disabled={busy !== null} onRun={onRun} />
         <DecisionPanel candidate={candidate} run={run} disabled={busy !== null} onApprove={onApprove} onQuarantine={onQuarantine} />
       </main>
-      <Footer history={history} run={run} mode={api.mode} />
+      <Footer history={history} active={active} run={run} mode={api.mode} />
     </div>
   );
 }
