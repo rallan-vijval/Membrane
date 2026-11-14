@@ -11,3 +11,7 @@
 - Added provider regression and governed-memory browser checks. See api-readiness.md for results and live limitations.
 
 Previous review blockers in integration-review.md describe the original submitted C checkpoint; this log and api-readiness.md supersede those blocker statuses for this integration branch.
+
+## Agent B checkpoint 4 integration verification
+
+Reviewed 5d22cf6 against main a8520c6. This checkpoint adds seven browser tests and the B progress log only; it changes no application code or dependencies. Merged without conflicts or required adjustments. Production TypeScript/Vite build passed. All 14 Playwright tests passed under the committed configuration, using system Chrome, Vite and the actual local FastAPI health endpoint. Governance requests use explicitly synthetic intercepted fixtures; live provider calls were not run. This resolves checkpoint 4's earlier local proxy-test limitation.
