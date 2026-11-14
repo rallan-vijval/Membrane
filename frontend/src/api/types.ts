@@ -27,6 +27,24 @@ export interface Health {
   memory_search?: IntegrationHealth;
   tracing?: IntegrationHealth;
   vision?: IntegrationHealth;
+  gmail?: IntegrationHealth;
+}
+
+/** Whether the backend holds a working read-only Gmail grant, and for which mailbox. */
+export interface GmailStatus {
+  status: 'ready' | 'unavailable' | 'disabled';
+  detail: string;
+  account: string | null;
+}
+
+/** Search result metadata only. The body is read only when the reviewer imports the email. */
+export interface GmailMessage {
+  message_id: string;
+  thread_id: string;
+  subject: string;
+  sender: string;
+  date: string;
+  snippet: string;
 }
 
 export type Scope =
@@ -250,6 +268,10 @@ export interface MembraneApi {
   health(): Promise<Health>;
   uploadSource(file: File): Promise<Source>;
   getSource(id: string): Promise<Source>;
+  gmailStatus(): Promise<GmailStatus>;
+  gmailSearch(query: string): Promise<GmailMessage[]>;
+  /** Import one email, or the whole thread it belongs to, as an untrusted source. */
+  importEmail(kind: 'message' | 'thread', id: string): Promise<Source>;
   createCandidate(input: { source_id: string; text: string; scope: Scope; base_version_id: string; ttl_seconds: number }): Promise<Candidate>;
   getCandidate(id: string): Promise<Candidate>;
   startRun(candidateId: string): Promise<{ run_id: string }>;

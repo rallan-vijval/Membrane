@@ -14,6 +14,7 @@ import {
   type CaseResult,
   type Classification,
   type Execution,
+  type GmailMessage,
   type History,
   type MembraneApi,
   type Outcome,
@@ -180,6 +181,13 @@ function need<T>(map: Map<string, T>, id: string, what: string): T {
   return value;
 }
 
+const SYNTHETIC_MAIL: GmailMessage[] = [
+  { message_id: 'syn-mail-1', thread_id: 'syn-thread-1', subject: 'Refund exception for order 4821', sender: 'Supervisor <supervisor@example.test>',
+    date: 'Sat, 14 Nov 2026 10:00:00 -0500', snippet: 'Order 4821 may be refunded without returning the item. One-time exception for customer C-200.' },
+  { message_id: 'syn-mail-2', thread_id: 'syn-thread-2', subject: 'Shipping delays this week', sender: 'Logistics <logistics@example.test>',
+    date: 'Fri, 13 Nov 2026 16:20:00 -0500', snippet: 'Expect two extra days on standard shipping until Friday.' },
+];
+
 export const syntheticApi: MembraneApi = {
   mode: 'synthetic',
 
@@ -207,6 +215,29 @@ export const syntheticApi: MembraneApi = {
   },
 
   getSource: async (id: string) => need(state.sources, id, 'Source'),
+
+  gmailStatus: () => wait({ status: 'ready' as const, detail: 'Synthetic mode: no mailbox is contacted.', account: 'synthetic-inbox@example.test' }),
+
+  gmailSearch: (query: string) => {
+    const q = query.trim().toLowerCase();
+    return wait(SYNTHETIC_MAIL.filter((m) => !q || `${m.subject} ${m.sender} ${m.snippet}`.toLowerCase().includes(q)));
+  },
+
+  importEmail: (kind, target) => {
+    const mail = SYNTHETIC_MAIL.find((m) => (kind === 'thread' ? m.thread_id : m.message_id) === target);
+    if (!mail) return Promise.reject(new ApiError(404, 'not_found', 'Gmail message or thread not found'));
+    const source: Source = {
+      id: nextId('src'),
+      extracted_text: `Subject: ${mail.subject}\nFrom: ${mail.sender}\nDate: ${mail.date}\n\n${mail.snippet}`,
+      quotation: mail.snippet,
+      proposed_candidate: { text: 'All VIP customers can keep refunded items.', scope: { kind: 'global' } },
+      provenance: { sha256: 'synthetic-not-hashed', mime_type: 'message/rfc822', extraction_model: null, trusted: false },
+      image_url: null,
+      created_at: now(),
+    };
+    state.sources.set(source.id, source);
+    return wait(source);
+  },
 
   createCandidate: (input) => {
     if (input.base_version_id !== state.active.version_id) {

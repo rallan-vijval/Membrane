@@ -2,6 +2,16 @@
 
 Read this first when joining the project. Dates use America/New_York. Append an entry for each handoff, contract change, integration fix, or merge; include branch, commit, verification, and any action needed by the other agent. Never include secrets or claim mock results are live.
 
+## 2026-11-14 — Gmail source integration (branch only)
+
+Branch `feat/gmail-source-integration`, from main `51b5583`. Main is unchanged.
+
+- New: `backend/app/integrations/gmail.py` (read-only Gmail client), `backend/app/email_source.py` (parse and typeset), `scripts/gmail_authorize.py` (one-time consent), `frontend/src/gmail.tsx` (picker), `docs/gmail-setup.md`.
+- Additive API: `GET /api/gmail/status`, `GET /api/gmail/messages`, `POST /api/gmail/messages/{id}/import`, `POST /api/gmail/threads/{id}/import`; `Health.gmail`. `Source` is unchanged: an email is a source with `mime_type` `message/rfc822`, a typeset PNG preview and Gmail IDs in `provenance`. `contracts/openapi.yaml` and `frontend/src/api/generated.ts` regenerated (additions only).
+- Shared files touched with small additive edits: `main.py`, `service.py`, `provider.py` (`extract_email`), `models.py`, `config.py`, `components.tsx` (one prop + picker), `App.tsx`, `api/{types,http,synthetic,normalize}.ts`, `styles.css`, `.env.example`.
+- Verified: 103 backend tests passed (7 new), 2 live skips; 16 browser tests passed (1 new); production build passed. Google is replaced by a test transport; **no live Gmail request has been made**.
+- Needed before live use: a Google OAuth Desktop client and `python -m scripts.gmail_authorize` (see `docs/gmail-setup.md`). Off by default (`GMAIL_ENABLED=false`).
+
 ## 2026-11-14 — Next-phase planning only
 
 Created `feat/governed-memory-backend` from shared main checkpoint `3b456a4`. Added `docs/NEXT_PHASE_PLAN.md`, revised for **three independent agents**: A (our side) owns governed memory/core backend/Atlas; B owns lifecycle/retrieval UI, active-task results and existing speech UX; C owns isolated Voyage/OpenAI embedding adapters and optional LangSmith instrumentation. Explicit file ownership, per-agent progress files and separate HTTP/Python contract checkpoints avoid shared edits. Future integration order is C → A → B.

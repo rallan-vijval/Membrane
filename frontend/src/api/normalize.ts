@@ -25,7 +25,7 @@ export const healthFromWire = (value: DTO['Health']): Health => ({
 function optionalHealth(value: DTO['Health']): Partial<Health> {
   const loose = value as unknown as Record<string, { status?: IntegrationHealth['status']; reason?: string } | undefined>;
   const out: Partial<Health> = {};
-  for (const key of ['embeddings', 'memory_search', 'tracing', 'vision'] as const) {
+  for (const key of ['embeddings', 'memory_search', 'tracing', 'vision', 'gmail'] as const) {
     const item = loose[key];
     if (item?.status) out[key] = { status: item.status, detail: item.reason ?? null };
   }

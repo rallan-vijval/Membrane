@@ -247,3 +247,13 @@ button:hover:not(:disabled) { background: #245155; }
 .case-explanation p { margin-top: 5px; font-size: 13px; }
 .results-heading { margin: 20px 0 6px; font-size: 18px; }
 @media (max-width: 600px) { .workspace-tabs { padding: 16px 16px 0; } .journey { grid-template-columns: 1fr; } .review-flow > .panel { padding: 18px; } }
+
+/* Gmail source picker */
+.gmail { margin-top: 10px; border: 1px solid #d5dbe8; border-radius: 10px; padding: 10px 14px; background: #fff; }
+.gmail > summary { cursor: pointer; font-weight: 600; }
+.gmail-search { display: flex; gap: 8px; align-items: flex-end; margin-top: 8px; }
+.gmail-search .field { flex: 1; margin: 0; }
+.gmail-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; max-height: 320px; overflow-y: auto; }
+.gmail-list li { border: 1px solid #e3e7f0; border-radius: 8px; padding: 8px 10px; }
+.gmail-subject { font-weight: 600; }
+.gmail-snippet { font-size: 14px; color: var(--ink-soft); margin: 4px 0 6px; overflow-wrap: anywhere; }

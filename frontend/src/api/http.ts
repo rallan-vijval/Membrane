@@ -54,6 +54,10 @@ export const httpApi: MembraneApi = {
     return request<DTO['Source']>('/sources', { method: 'POST', body: form }).then(sourceFromWire);
   },
   getSource: (sourceId: string) => request<DTO['Source']>(`/sources/${id(sourceId)}`).then(sourceFromWire),
+  gmailStatus: () => request<DTO['GmailStatus']>('/gmail/status')
+    .then((v) => ({ status: v.status, detail: v.reason, account: v.account ?? null })),
+  gmailSearch: (query: string) => request<DTO['GmailMessages']>(`/gmail/messages?q=${id(query)}`).then((v) => v.items),
+  importEmail: (kind, target) => request<DTO['Source']>(`/gmail/${kind === 'thread' ? 'threads' : 'messages'}/${id(target)}/import`, { method: 'POST' }).then(sourceFromWire),
   createCandidate: (input) => request<DTO['Candidate']>('/candidates', json(input)).then(candidateFromWire),
   getCandidate: (candidateId: string) => request<DTO['Candidate']>(`/candidates/${id(candidateId)}`).then(candidateFromWire),
   startRun: (candidateId: string) => request(`/candidates/${id(candidateId)}/runs`, json({})),

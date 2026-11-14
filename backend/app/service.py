@@ -43,6 +43,26 @@ class Service:
         self.store.db.sources.insert_one(doc)
         return self.public(Source, doc)
 
+    def email_source(self, emails, account, kind):
+        """An explicitly selected email or thread becomes an untrusted source, exactly like an upload."""
+        from .email_source import render_png, render_text
+        text = render_text(emails, self.store.settings.gmail_max_email_chars)
+        if not any(mail["body"] for mail in emails):
+            raise Problem("email_empty", "This email has no readable text body", 422)
+        extracted, provenance = self.provider.extract_email(text)
+        source_id = uid("source")
+        path = self.store.settings.data_dir / "images" / f"{source_id}.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(render_png(text))
+        provenance = {**provenance, "channel": "gmail", "import_kind": kind, "account": account,
+            "thread_id": emails[0]["thread_id"], "message_ids": [m["message_id"] for m in emails],
+            "subject": emails[0]["subject"], "sender": emails[0]["sender"], "date": emails[0]["date"],
+            "attachments_not_read": [name for m in emails for name in m["attachments"]]}
+        doc = self.store.doc(source_id=source_id, sha256=hashlib.sha256(text.encode()).hexdigest(), mime_type="message/rfc822",
+            image_url=f"/api/sources/{source_id}/image", **extracted, provenance=provenance, trust="untrusted", local_path=str(path))
+        self.store.db.sources.insert_one(doc)
+        return self.public(Source, doc)
+
     @staticmethod
     def public(model, doc):
         return model.model_validate({k: v for k, v in doc.items() if k in model.model_fields}).model_dump()

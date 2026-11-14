@@ -103,6 +103,229 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/gmail/status:
+    get:
+      summary: Gmail Status
+      description: Live check of the read-only grant. Never returns credentials.
+      operationId: gmail_status_api_gmail_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmailStatus'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Bad Gateway
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/gmail/messages:
+    get:
+      summary: Gmail Messages
+      operationId: gmail_messages_api_gmail_messages_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 500
+          default: ''
+          title: Q
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 25
+          minimum: 1
+          default: 10
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmailMessages'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/gmail/messages/{message_id}/import:
+    post:
+      summary: Gmail Import Message
+      operationId: gmail_import_message_api_gmail_messages__message_id__import_post
+      parameters:
+      - name: message_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,64}$
+          title: Message Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
+  /api/gmail/threads/{thread_id}/import:
+    post:
+      summary: Gmail Import Thread
+      operationId: gmail_import_thread_api_gmail_threads__thread_id__import_post
+      parameters:
+      - name: thread_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,64}$
+          title: Thread Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Not Found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Conflict
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Unprocessable Entity
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Too Many Requests
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Bad Gateway
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Service Unavailable
   /api/sources/{source_id}/image:
     get:
       summary: Image
@@ -1570,6 +1793,71 @@ components:
       - output_tokens
       - latency_ms
       title: Execution
+    GmailMessage:
+      properties:
+        message_id:
+          type: string
+          title: Message Id
+        thread_id:
+          type: string
+          title: Thread Id
+        subject:
+          type: string
+          title: Subject
+        sender:
+          type: string
+          title: Sender
+        date:
+          type: string
+          title: Date
+        snippet:
+          type: string
+          title: Snippet
+      additionalProperties: false
+      type: object
+      required:
+      - message_id
+      - thread_id
+      - subject
+      - sender
+      - date
+      - snippet
+      title: GmailMessage
+    GmailMessages:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/GmailMessage'
+          type: array
+          title: Items
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      title: GmailMessages
+    GmailStatus:
+      properties:
+        status:
+          type: string
+          enum:
+          - ready
+          - unavailable
+          - disabled
+          title: Status
+        reason:
+          type: string
+          title: Reason
+        account:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Account
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      - reason
+      title: GmailStatus
     Health:
       properties:
         database:
@@ -1587,6 +1875,8 @@ components:
         tracing:
           $ref: '#/components/schemas/ComponentHealth'
         vision:
+          $ref: '#/components/schemas/ComponentHealth'
+        gmail:
           $ref: '#/components/schemas/ComponentHealth'
         demo_identity:
           type: string

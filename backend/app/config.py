@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     governed_memory_enabled: bool = False
     langsmith_tracing: bool = False
     langsmith_api_key: SecretStr = SecretStr("")
+    gmail_enabled: bool = False
+    gmail_client_id: str = ""
+    gmail_client_secret: SecretStr = SecretStr("")
+    gmail_refresh_token: SecretStr = SecretStr("")
+    gmail_max_email_chars: int = Field(default=12000, ge=500, le=50000)
 
     @property
     def fixture_collection(self):

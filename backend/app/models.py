@@ -66,6 +66,7 @@ class Health(DTO):
     memory_search: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="disabled", reason="Governed memory is not enabled"))
     tracing: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="disabled", reason="Optional tracing disabled"))
     vision: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="unavailable", reason="Vision access unverified"))
+    gmail: ComponentHealth = Field(default_factory=lambda: ComponentHealth(status="disabled", reason="Gmail import disabled"))
     demo_identity: str = "Local demo reviewer"
     workspace_id: str
 
@@ -82,6 +83,25 @@ class Source(DTO):
     proposed_scope: Scope
     trust: Literal["untrusted"] = "untrusted"
     provenance: dict[str, Any]
+
+
+class GmailStatus(DTO):
+    status: Literal["ready", "unavailable", "disabled"]
+    reason: str
+    account: str | None = None
+
+
+class GmailMessage(DTO):
+    message_id: str
+    thread_id: str
+    subject: str
+    sender: str
+    date: str
+    snippet: str
+
+
+class GmailMessages(DTO):
+    items: list[GmailMessage]
 
 
 CandidateStatus = Literal["staged", "testing", "eligible", "quarantined", "inconclusive", "approved"]

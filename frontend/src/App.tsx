@@ -153,6 +153,14 @@ export function App() {
       setRun(null);
     });
 
+  const onImportEmail = (kind: 'message' | 'thread', id: string) =>
+    act('Reading email…', async () => {
+      const s = await api.importEmail(kind, id);
+      setSource(s);
+      setCandidate(null);
+      setRun(null);
+    });
+
   const onStage = (text: string, scope: Scope, ttlSeconds: number) =>
     act('Staging…', async () => {
       if (!source || !active) throw new Error('Upload a source first.');
@@ -233,6 +241,7 @@ export function App() {
           candidate={candidate}
           disabled={busy !== null}
           onUpload={onUpload}
+          onImportEmail={onImportEmail}
           onStage={onStage}
           onRevise={onRevise}
         />

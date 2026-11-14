@@ -18,6 +18,7 @@ import {
   TTL_MAX_SECONDS,
   TTL_MIN_SECONDS,
 } from './api';
+import { GmailPanel } from './gmail';
 import { RetrievalEvidence } from './governed';
 import { captureFrame, prepare } from './intake';
 import { ExperimentSummary } from './workflow';
@@ -94,11 +95,12 @@ interface SourcePanelProps {
   candidate: Candidate | null;
   disabled: boolean;
   onUpload: (file: File) => void;
+  onImportEmail: (kind: 'message' | 'thread', id: string) => void;
   onStage: (text: string, scope: Scope, ttlSeconds: number) => void;
   onRevise: (text: string, scope: Scope, ttlSeconds: number) => void;
 }
 
-export function SourcePanel({ source, candidate, disabled, onUpload, onStage, onRevise }: SourcePanelProps) {
+export function SourcePanel({ source, candidate, disabled, onUpload, onImportEmail, onStage, onRevise }: SourcePanelProps) {
   const [text, setText] = useState('');
   const [kind, setKind] = useState<Scope['kind']>('global');
   const [orderId, setOrderId] = useState('');
@@ -203,6 +205,12 @@ export function SourcePanel({ source, candidate, disabled, onUpload, onStage, on
         </div>
       )}
       {intakeProblem && <p className="intake-problem" role="status">{intakeProblem}</p>}
+      <GmailPanel disabled={disabled} onImport={(kind, id) => {
+        setIntakeProblem(null);
+        setNote(kind === 'thread' ? 'Imported from Gmail: the whole thread, word for word. Attachments are not read.'
+          : 'Imported from Gmail: this one email, word for word. Attachments are not read.');
+        onImportEmail(kind, id);
+      }} />
 
       {source ? (
         <div className="source">

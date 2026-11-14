@@ -3,7 +3,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, Header, UploadFile
+from fastapi import FastAPI, File, Header, Path as PathParam, Query, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -15,7 +15,10 @@ from .common import Problem
 from .config import Settings
 from .models import (ApproveIn, Audio, AudioIn, Candidate, CandidateIn, CandidateList, ErrorResponse,
                      Health, History, QuarantineIn, ReviseIn, Run, RunAccepted, Source, Version,
-                     MemoryEntries, RevokeIn, RevokeResult, TaskOptions, ExecuteActiveIn, ActiveExecution)
+                     MemoryEntries, RevokeIn, RevokeResult, TaskOptions, ExecuteActiveIn, ActiveExecution,
+                     GmailMessages, GmailStatus)
+from .email_source import parse
+from .integrations.gmail import Gmail
 from .provider import Provider
 from .runner import Worker
 from .service import Service
@@ -23,12 +26,13 @@ from .store import Store
 from .voice import Voice
 
 
-def create_app(settings=None, store=None, provider=None, embeddings=None, tracer=None):
+def create_app(settings=None, store=None, provider=None, embeddings=None, tracer=None, gmail=None):
     cfg = settings or Settings()
     store = store or Store(cfg)
     service = Service(store, provider or Provider(cfg), embeddings, tracer)
     worker = Worker(service)
     voice = Voice(service)
+    gmail = gmail or Gmail(cfg)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -122,7 +126,11 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
         if cfg.voice_enabled:
             voice_health = {"status": "degraded" if cfg.elevenlabs_api_key.get_secret_value() and cfg.elevenlabs_voice_id else "unavailable",
                             "reason": "Voice configured; account credits and model access unverified" if cfg.elevenlabs_api_key.get_secret_value() and cfg.elevenlabs_voice_id else "Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID"}
-        return {"database": database, "model": model, "search": search, "voice": voice_health, "workspace_id": cfg.workspace_id,
+        gmail_health = {"status": "disabled", "reason": "Optional Gmail import is disabled"}
+        if cfg.gmail_enabled:
+            gmail_health = ({"status": "degraded", "reason": "Gmail credentials configured; read-only access unverified"} if gmail.configured()
+                            else {"status": "unavailable", "reason": "Set the GMAIL_* credentials; run scripts/gmail_authorize.py"})
+        return {"database": database, "model": model, "search": search, "voice": voice_health, "workspace_id": cfg.workspace_id, "gmail": gmail_health,
                 "vision": vision_health, "embeddings": embedding_health, "memory_search": memory_search, "tracing": tracing_health}
 
     @app.post("/api/sources", response_model=Source, status_code=201)
@@ -143,6 +151,31 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
         from starlette.concurrency import run_in_threadpool
         return await run_in_threadpool(service.source, data, mime)
 
+    GmailId = Annotated[str, PathParam(pattern=r"^[A-Za-z0-9_-]{1,64}$")]
+
+    @app.get("/api/gmail/status", response_model=GmailStatus)
+    def gmail_status():
+        """Live check of the read-only grant. Never returns credentials."""
+        try:
+            return {"status": "ready", "reason": "Read-only Gmail access verified", "account": gmail.account()}
+        except Problem as problem:
+            return {"status": "disabled" if problem.code == "gmail_disabled" else "unavailable", "reason": problem.message, "account": None}
+
+    @app.get("/api/gmail/messages", response_model=GmailMessages)
+    def gmail_messages(q: Annotated[str, Query(max_length=500)] = "", limit: Annotated[int, Query(ge=1, le=25)] = 10):
+        return {"items": gmail.search(q, limit)}
+
+    @app.post("/api/gmail/messages/{message_id}/import", response_model=Source, status_code=201)
+    def gmail_import_message(message_id: GmailId):
+        return service.email_source([parse(gmail.message(message_id))], gmail.account(), "message")
+
+    @app.post("/api/gmail/threads/{thread_id}/import", response_model=Source, status_code=201)
+    def gmail_import_thread(thread_id: GmailId):
+        messages = gmail.thread(thread_id)
+        if not messages:
+            raise Problem("not_found", "Gmail thread has no messages", 404)
+        return service.email_source([parse(m) for m in messages[:20]], gmail.account(), "thread")
+
     def asset(collection, key, value, media):
         doc = store.get(collection, key, value)
         path = Path(doc.get("local_path", ""))
@@ -153,7 +186,8 @@ def create_app(settings=None, store=None, provider=None, embeddings=None, tracer
     @app.get("/api/sources/{source_id}/image", response_class=FileResponse)
     def image(source_id: str):
         doc = store.get("sources", "source_id", source_id)
-        return asset("sources", "source_id", source_id, doc["mime_type"])
+        # An imported email is stored as text; its preview is always the typeset PNG.
+        return asset("sources", "source_id", source_id, "image/png" if doc["mime_type"] == "message/rfc822" else doc["mime_type"])
 
     @app.post("/api/candidates", response_model=Candidate, status_code=201)
     def stage(body: CandidateIn):
