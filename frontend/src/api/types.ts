@@ -177,30 +177,6 @@ export class ApiError extends Error {
   }
 }
 
-/** A support request the live agent can be asked to handle. Shown as an email in the inbox view. */
-export interface InboxTask {
-  fixture_id: string;
-  description: string;
-}
-
-/** A memory the agent was given for one task, and why. */
-export interface MemoryUsed {
-  id: string;
-  text: string;
-  scope: Scope | null;
-  reason: string | null;
-  score: number | null;
-}
-
-/** What the live agent did with one request, using only ACTIVE memory. Tools are simulated. */
-export interface AgentHandling {
-  execution_id: string;
-  version_id: string;
-  execution: Execution;
-  memories_used: MemoryUsed[];
-  trace_url: string | null;
-}
-
 /** Everything the UI needs from the backend. Implemented by http.ts (real) and synthetic.ts. */
 export interface MembraneApi {
   readonly mode: 'real' | 'synthetic';
@@ -217,8 +193,6 @@ export interface MembraneApi {
   activeMemory(): Promise<ActiveMemory>;
   history(): Promise<History>;
   audio(runId: string, caseId: string, side: Side, repetition: Repetition): Promise<AudioClip>;
-  listTasks(): Promise<InboxTask[]>;
-  executeTask(fixtureId: string, baseVersionId: string): Promise<AgentHandling>;
 }
 
 export const TERMINAL_RUN: ReadonlySet<RunStatus> = new Set<RunStatus>(['completed', 'failed', 'inconclusive']);

@@ -41,35 +41,3 @@ Lifetime (TTL) picker, governed-memory panel with expiry and revoke, per-case re
 
 Branch `feat/membrane-review-ui` has three commits after the merged `f061fe8` (a redesign written
 against wire-shaped types). They are superseded by this branch and should not be merged.
-
-## 2026-11-14, checkpoint 2: support inbox view (the email use case)
-
-Added a second view, **Support inbox** (`frontend/src/Inbox.tsx`), next to **Memory review**. Open it with the
-tab or `?view=inbox`. Memory review stays the default view so the existing Playwright flow is unchanged.
-
-- An internal supervisor email (synthetic sample, same text as `fixtures/support-4821.png`) has
-  **Send to memory review**: the email is typeset word for word as an image and uploaded through the
-  existing `POST /api/sources`. This part needs no new backend work.
-- Customer emails come from `GET /api/tasks`. **Let the agent handle it** calls
-  `POST /api/agent/tasks/{fixture_id}/execute` with `{base_version_id}` and shows the draft reply, the
-  attempted tool call, the tool guard result and the memories the agent was given. Handling the same
-  email again after an approval stacks the new draft above the old one, each labelled with its version.
-- It is a mailbox view over the review API's synthetic tasks. It does not connect to Gmail, send mail
-  or move money.
-
-### Dependency on Agent A
-
-Both task endpoints are in `docs/NEXT_PHASE_PLAN.md` but not in `contracts/openapi.yaml` yet.
-`frontend/src/api/inboxWire.ts` reads their responses defensively and is marked provisional: it accepts
-`items[].fixture_id`, and for the execute response `execution_id`, `version_id` (or `base_version_id`),
-`execution` (or `result`, Execution-shaped), `memory_retrieval.entries[]` with
-`memory_id`/`text`/`scope`/`reason`/`semantic_score`, and `trace_url`. Replace it with generated types when
-the contract lands. Until the backend ships them, the inbox says the customer emails could not be loaded
-(real mode) and works fully only in synthetic mode.
-
-### Verification
-
-Headless Chrome, synthetic mode: order 4821 email handled before approval (asks for the return), supervisor
-email sent to review, broad rule quarantined, order-scoped revision approved, order 4821 handled again
-(refund, return waived, guard allowed), another VIP's email unchanged, 390 px width fits, no page errors.
-Same limits as checkpoint 1: `npm ci`, `npm run build` and `npm test` not run here.

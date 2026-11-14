@@ -11,13 +11,9 @@ import {
   type Source,
 } from './api';
 import { DecisionPanel, Footer, Header, RunPanel, SourcePanel } from './components';
-import { Inbox } from './Inbox';
 import { describeError } from './util';
 
 const POLL_MS = 2000;
-
-type View = 'review' | 'inbox';
-const initialView = (): View => (new URLSearchParams(window.location.search).get('view') === 'inbox' ? 'inbox' : 'review');
 
 function readUrl() {
   const p = new URLSearchParams(window.location.search);
@@ -44,7 +40,6 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [view, setView] = useState<View>(initialView);
   const alive = useRef(true);
 
   const fail = useCallback((err: unknown) => {
@@ -145,20 +140,6 @@ export function App() {
       setRun(null);
     });
 
-  const show = (next: View) => {
-    const p = new URLSearchParams(window.location.search);
-    if (next === 'inbox') p.set('view', 'inbox');
-    else p.delete('view');
-    const query = p.toString();
-    window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname);
-    setView(next);
-  };
-
-  const onSendToReview = (file: File) => {
-    show('review');
-    void onUpload(file);
-  };
-
   const onStage = (text: string, scope: Scope) =>
     act('Staging…', async () => {
       if (!source || !active) throw new Error('Upload a source first.');
@@ -217,12 +198,7 @@ export function App() {
         </div>
       )}
       {busy && <div className="busy" role="status">{busy}</div>}
-      <nav className="views" aria-label="Views">
-        <button type="button" className={view === 'inbox' ? 'view view-on' : 'view'} aria-current={view === 'inbox' ? 'page' : undefined} onClick={() => show('inbox')}>Support inbox</button>
-        <button type="button" className={view === 'review' ? 'view view-on' : 'view'} aria-current={view === 'review' ? 'page' : undefined} onClick={() => show('review')}>Memory review</button>
-      </nav>
-      <Inbox active={active} hidden={view !== 'inbox'} disabled={busy !== null} onSendToReview={onSendToReview} />
-      <main className="columns" hidden={view !== 'review'}>
+      <main className="columns">
         <SourcePanel
           source={source}
           candidate={candidate}

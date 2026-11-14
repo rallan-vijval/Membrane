@@ -275,23 +275,6 @@ export const syntheticApi: MembraneApi = {
     return wait(candidate);
   },
 
-  listTasks: () => wait(FIXTURES.map((fx) => ({ fixture_id: fx.id, description: fx.title })), 80),
-
-  executeTask: async (fixtureId: string, baseVersionId: string) => {
-    const fx = FIXTURES.find((f) => f.id === fixtureId);
-    if (!fx) throw new ApiError(404, 'not_found', `Task ${fixtureId} not found (synthetic).`);
-    if (baseVersionId !== state.active.version_id) throw new ApiError(409, 'stale_base', 'Active memory changed. Refresh and try again.');
-    // Only ACTIVE memory counts. An order-scoped entry applies to that order alone.
-    const scoped = state.active.entries.find((m) => m.scope.kind === 'order' && m.scope.order_id === fx.order_id);
-    const result = scoped ? execution(fx, 'candidate', 1, scoped.scope) : execution(fx, 'baseline', 1, { kind: 'global' });
-    const used = state.active.entries.filter((m) => m.scope.kind !== 'order' || m === scoped);
-    return wait({
-      execution_id: nextId('exec'), version_id: state.active.version_id, execution: { ...result.exec, side: 'baseline' as const },
-      memories_used: used.map((m) => ({ id: m.id, text: m.text, scope: m.scope, reason: m.scope.kind === 'order' ? 'exact order match' : 'policy memory', score: null })),
-      trace_url: null,
-    }, 500);
-  },
-
   activeMemory: () => wait(state.active, 80),
   history: () => wait(state.history, 80),
 

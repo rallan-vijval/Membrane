@@ -33,7 +33,7 @@ export const candidateFromWire = (value: DTO['Candidate']): Candidate => ({
   content_hash: value.content_hash, latest_run_id: value.latest_run_id ?? null, created_at: value.created_at,
 });
 
-export function executionFromWire(value: DTO['Execution']): Execution {
+function executionFromWire(value: DTO['Execution']): Execution {
   const attempt = value.attempt;
   const outcome = value.tool_outcome;
   return { side: value.side, repetition: value.repetition,

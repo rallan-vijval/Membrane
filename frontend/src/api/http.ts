@@ -7,7 +7,6 @@ import {
   type Side,
 } from './types';
 import type { components } from './generated';
-import { handlingFromWire, tasksFromWire } from './inboxWire';
 import { activeFromWire, candidateFromWire, healthFromWire, historyFromWire, runFromWire, sourceFromWire } from './normalize';
 type DTO = components['schemas'];
 
@@ -69,8 +68,4 @@ export const httpApi: MembraneApi = {
   history: () => request<DTO['History']>('/history').then(historyFromWire),
   audio: (runId: string, caseId: string, side: Side, repetition: Repetition) =>
     request(`/runs/${id(runId)}/cases/${id(caseId)}/audio`, json({ side, repetition })),
-  // Planned in docs/NEXT_PHASE_PLAN.md; a 404 here means the backend has not shipped them yet.
-  listTasks: () => request<unknown>('/tasks').then(tasksFromWire),
-  executeTask: (fixtureId: string, baseVersionId: string) =>
-    request<unknown>(`/agent/tasks/${id(fixtureId)}/execute`, json({ base_version_id: baseVersionId })).then(handlingFromWire),
 };
